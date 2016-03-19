@@ -111,60 +111,6 @@ static int lua_dofile (lua_State *L) {
 	return (int)dofilecont;
 }
 
-static int lua_createextdatadir(lua_State *L) {
-	int argc = lua_gettop(L);
-	#ifndef SKIP_ERROR_HANDLING
-		if (argc != 2) return luaL_error(L, "wrong number of arguments");
-	#endif
-	const char *path = luaL_checkstring(L, 1);
-	u32 archive_id = luaL_checknumber(L, 2);
-	FS_MediaType mtype;
-	FS_ArchiveID atype;
-	if (archive_id < 0x2000){
-		mtype = MEDIATYPE_SD;
-		atype = ARCHIVE_EXTDATA;
-	}else{
-		mtype = MEDIATYPE_NAND;
-		atype = ARCHIVE_SHARED_EXTDATA;
-	}
-	u32 main_extdata_archive_lowpathdata[3] = {mtype, archive_id, 0};
-	FS_Archive main_extdata_archive = (FS_Archive){atype, (FS_Path){PATH_BINARY, 0xC, (u8*)main_extdata_archive_lowpathdata}};
-	Result ret = FSUSER_OpenArchive( &main_extdata_archive);
-	#ifndef SKIP_ERROR_HANDLING
-		if(ret!=0) return luaL_error(L, "cannot access extdata archive");
-	#endif
-	FS_Path filePath=fsMakePath(PATH_ASCII, path);
-	FSUSER_CreateDirectory(main_extdata_archive,filePath, FS_ATTRIBUTE_DIRECTORY);
-	FSUSER_CloseArchive( &main_extdata_archive);
-	return 0;
-}
-
-static int lua_deleteextfile(lua_State *L)
-{
-	int argc = lua_gettop(L);
-	#ifndef SKIP_ERROR_HANDLING
-		if (argc != 2) return luaL_error(L, "wrong number of arguments");
-	#endif
-	const char *file_tbo = luaL_checkstring(L, 1);
-	u32 archive_id = luaL_checknumber(L,2);
-	FS_MediaType mtype;
-	FS_ArchiveID atype;
-	if (archive_id < 0x2000){
-		mtype = MEDIATYPE_SD;
-		atype = ARCHIVE_EXTDATA;
-	}else{
-		mtype = MEDIATYPE_NAND;
-		atype = ARCHIVE_SHARED_EXTDATA;
-	}
-	u32 main_extdata_archive_lowpathdata[3] = {mtype, archive_id, 0};
-	FS_Archive main_extdata_archive = (FS_Archive){atype, (FS_Path){PATH_BINARY, 0xC, (u8*)main_extdata_archive_lowpathdata}};
-	Result ret = FSUSER_OpenArchive( &main_extdata_archive);
-	#ifndef SKIP_ERROR_HANDLING
-		if(ret!=0) return luaL_error(L, "cannot access extdata archive");
-	#endif
-	ret = FSUSER_DeleteFile(main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo));
-}
-
 static int lua_openfile(lua_State *L)
 {
 	int argc = lua_gettop(L);
@@ -211,11 +157,6 @@ static int lua_openfile(lua_State *L)
 				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo), FS_OPEN_READ, 0);
 				break;
 			case 1:
-				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo), FS_OPEN_WRITE, 0);
-				break;
-			case 2:
-				ret = FSUSER_DeleteFile(main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo));
-				ret = FSUSER_CreateFile(main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo), 0, sizeoffiletocreate);
 				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo), FS_OPEN_WRITE, 0);
 				break;
 		}
@@ -1950,11 +1891,9 @@ static const luaL_Reg System_functions[] = {
 	{"checkBuild",			lua_checkbuild},
 	{"renameDirectory",		lua_rendir},
 	{"createDirectory",		lua_createdir},
-	{"createExtdataDir",	lua_createextdatadir},
 	{"deleteDirectory",		lua_deldir},
 	{"renameFile",			lua_renfile},
 	{"deleteFile",			lua_delfile},
-	{"deleteExtdataFile",	lua_deleteextfile},
 	{"doesFileExist",		lua_checkexist},
 	{"listDirectory",		lua_listdir},
 	{"getBatteryLife",		lua_batterylv},
