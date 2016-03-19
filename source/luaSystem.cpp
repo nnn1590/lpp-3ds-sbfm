@@ -175,9 +175,13 @@ static int lua_openfile(lua_State *L)
 	int type = luaL_checkinteger(L, 2);
 	u32 archive_id;
 	bool extdata = false;
-	if (argc == 3){
+	int sizeoffiletocreate = 0;
+	if (argc > 2){
 		archive_id = luaL_checknumber(L,3);
 		extdata = true;
+		if (argc > 3){
+			sizeoffiletocreate = luaL_checknumber(L,4);
+		}
 	}
 	Handle fileHandle;
 	Result ret;
