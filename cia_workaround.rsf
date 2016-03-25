@@ -1,7 +1,7 @@
 BasicInfo:
-  Title                   : "Lua Player Plus"
+  Title                   : "SmileBASIC File Manager"
   CompanyCode             : "00"
-  ProductCode             : "CTR-P-LPPD"
+  ProductCode             : "CTR-P-SBFM"
   ContentType             : Application
   Logo                    : Nintendo # Nintendo / Licensed / Distributed / iQue / iQueForSystem
 

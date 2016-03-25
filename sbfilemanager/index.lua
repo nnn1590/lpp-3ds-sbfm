@@ -23,18 +23,12 @@ end
 
 
 --adds something to the bottom screen--
-function logg(str,flag)
+function logg(str)
 	table.insert(logger,str)
-	if flag~=0 then advanceframe() end
-end
-function advanceframe()
-	if inshop==1 then showshop(storelist) else updatescreen() end
-	Screen.clear(TOP_SCREEN)
+	updatescreen()
 	Screen.clear(BOTTOM_SCREEN)
 end
-function clearlogg()
-	for k,v in pairs(logger) do logger[k]=nil end
-end
+
 
 --prints everything--
 function updatescreen()
@@ -71,101 +65,14 @@ end
 
 
 --copy functions--
-function copy()
-	clearlogg()
-	logg("How do you want to copy this",0)
-	logg(" file/folder?",0)
-	logg("B: Cancel",0)
-	logg("Y: Copy full file, including header",0)
-	logg(" and footer",0)
-	logg("X: Copy only the code of a file. Only")
-	logg(" use this when you have a file",0)
-	logg(" containing only the code for a program",1)
-	repeat
-		oldpad=pad
-		pad = Controls.read()
-		if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-			System.showHomeMenu()
-		end
-		Screen.waitVblankStart()
-	until (((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))))
-	clearlogg()
-	counter=0
-	if (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
-		logg("Copy aborted",1)
-	elseif (Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y)) then
-		logg("Copying...",1)
-		if (selected==0) then
-			if (files[index].directory) then
-				System.createDirectory(System.currentDirectory()..files[index].name)
-				insidefolder=SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
-				for l,file in pairs(insidefolder) do
-					SBtoSD("/"..files[index].name.."/"..file.name,System.currentDirectory()..files[index].name.."/"..file.name)
-				end
-			else
-				SBtoSD("/"..folders[indexbkup].name.."/"..files[index].name,System.currentDirectory()..files[index].name)
-			end
-			sdfiles = SortDirectory(System.listDirectory(System.currentDirectory()))
-		elseif (selected==1) and not (files[index].directory and not sdfiles[sdindex].directory) then
-			if (sdfiles[sdindex].directory) then
-				System.createExtdataDir("/"..sdfiles[sdindex].name,archive)
-				insidefolder=SortDirectory(System.listDirectory(System.currentDirectory()..sdfiles[sdindex].name.."/"))
-				for l,file in pairs(insidefolder) do
-					SDtoSB(System.currentDirectory()..sdfiles[sdindex].name.."/"..file.name,"/"..sdfiles[sdindex].name.."/"..file.name)
-				end
-			else
-				SDtoSB(System.currentDirectory()..sdfiles[sdindex].name,"/"..folders[indexbkup].name.."/"..sdfiles[sdindex].name)
-			end
-			if (files[index].directory) then
-				files = SortDirectory(System.listExtdataDir("/",archive))
-			else
-				files = SortDirectory(System.listExtdataDir("/"..folders[indexbkup].name.."/",archive))
-			end
-		else
-			logg("Could not copy.",1)
-		end
-	elseif (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
-		logg("Copying code only...",1)
-		if (selected==0) then
-			if (files[index].directory) then
-				System.createDirectory(System.currentDirectory()..files[index].name)
-				insidefolder=SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
-				for l,file in pairs(insidefolder) do
-					SBtoSDsand("/"..files[index].name.."/"..file.name,System.currentDirectory()..files[index].name.."/"..file.name)
-				end
-			else
-				SBtoSDsand("/"..folders[indexbkup].name.."/"..files[index].name,System.currentDirectory()..files[index].name)
-			end
-			sdfiles = SortDirectory(System.listDirectory(System.currentDirectory()))
-		elseif (selected==1) and not (files[index].directory and not sdfiles[sdindex].directory) then
-			if (sdfiles[sdindex].directory) then
-				System.createExtdataDir("/"..sdfiles[sdindex].name,archive)
-				insidefolder=SortDirectory(System.listDirectory(System.currentDirectory()..sdfiles[sdindex].name.."/"))
-				for l,file in pairs(insidefolder) do
-					SDtoSBsand(System.currentDirectory()..sdfiles[sdindex].name.."/"..file.name,"/"..sdfiles[sdindex].name.."/"..file.name)
-				end
-			else
-				SDtoSBsand(System.currentDirectory()..sdfiles[sdindex].name,"/"..folders[indexbkup].name.."/"..sdfiles[sdindex].name)
-			end
-			if (files[index].directory) then
-				files = SortDirectory(System.listExtdataDir("/",archive))
-			else
-				files = SortDirectory(System.listExtdataDir("/"..folders[indexbkup].name.."/",archive))
-			end
-		else
-			logg("Could not copy.",1)
-		end
-	end
-end
-
 function SBtoSD(SBdir,SDdir)
-	logg("Source: "..SBdir,0)
-	logg("Destination: "..SDdir,1)
+	logg("Source: "..SBdir)
+	logg("Destination: "..SDdir)
 	readfile = io.open(SBdir,FREAD,archive)
 	--open SB file for reading--
 	if System.doesFileExist(SDdir) then
 		System.deleteFile(SDdir)
-		logg("Deleted old "..SDdir,1)
+		logg("Deleted old "..SDdir)
 	end
 	--check if SD file exist, delete if true so it doesn't interfere--
 	writefile = io.open(SDdir,FCREATE)
@@ -186,11 +93,11 @@ function SBtoSD(SBdir,SDdir)
 	io.close(readfile)
 	io.close(writefile)
 	--close files--
-	logg("Done.",1)
+	logg("Done.")
 end
 function SDtoSB(SDdir,SBdir)
-	logg("Source: "..SDdir,0)
-	logg("Destination: "..SBdir,1)
+	logg("Source: "..SDdir)
+	logg("Destination: "..SBdir)
 	readfile = io.open(SDdir,FREAD)
 	--open SD file for reading--
 	filesize = io.size(readfile)
@@ -200,7 +107,7 @@ function SDtoSB(SDdir,SBdir)
 		i=i+1
 	end
 	if (string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir)-i+1)~="B") and (string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir)-i+1)~="T") then
-		logg("Adding T to filename",1)
+		logg("Adding T to filename")
 		SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."T"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
 	end
 	writefile = io.open(SBdir,FCREATE,archive,filesize)
@@ -219,19 +126,19 @@ function SDtoSB(SDdir,SBdir)
 	io.close(readfile)
 	io.close(writefile,true)
 	--close files--
-	logg("Done.",1)
+	logg("Done.")
 end
 
 
 --sandwich copy functions--
 function SBtoSDsand(SBdir,SDdir)
-	logg("Source: "..SBdir,0)
+	logg("Source: "..SBdir)
 	readfile = io.open(SBdir,FREAD,archive)
-	logg("Destination: "..SDdir,1)
+	logg("Destination: "..SDdir)
 	--open SB file for reading--
 	if System.doesFileExist(SDdir) then
 		System.deleteFile(SDdir)
-		logg("Deleted old "..SDdir,1)
+		logg("Deleted old "..SDdir)
 	end
 	--check if SD file exist, delete if true so it doesn't interfere--
 	writefile = io.open(SDdir,FCREATE)
@@ -252,11 +159,11 @@ function SBtoSDsand(SBdir,SDdir)
 	io.close(readfile)
 	io.close(writefile)
 	--close files--
-	logg("Done.",1)
+	logg("Done.")
 end
 function SDtoSBsand(SDdir,SBdir)
-	logg("Source: "..SDdir,0)
-	logg("Destination: "..SBdir,1)
+	logg("Source: "..SDdir)
+	logg("Destination: "..SBdir)
 	readfile = io.open(SDdir,FREAD)
 	--open SD file for reading--
 	filesize = io.size(readfile)
@@ -267,18 +174,18 @@ function SDtoSBsand(SDdir,SBdir)
 	end
 	if (string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir)-i+1)=="B") then
 		if (io.read(readfile,8,12)==hextostring("03 00 02 00 00 02 00 00 00 02 00 00")) then
-			logg("Using the GRP file header",1)
+			logg("Using the GRP file header")
 			s=hextostring("01 00 01 00 00 00 02 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
 		else
-			logg("Using the DAT file header",1)
+			logg("Using the DAT file header")
 			s=hextostring("01 00 01 00 00 00 00 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
 		end
 	else
 		if (string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir)-i+1)~="T") then
-			logg("Adding T to filename",1)
+			logg("Adding T to filename")
 			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."T"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
 		end
-		logg("Using the TXT file header",1)
+		logg("Using the TXT file header")
 		s=hextostring("01 00 00 00 00 00 01 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
 	end
 	writefile = io.open(SBdir,FCREATE,archive,filesize+100)
@@ -300,7 +207,7 @@ function SDtoSBsand(SDdir,SBdir)
 	io.close(readfile)
 	io.close(writefile,true)
 	--close files--
-	logg("Done.",1)
+	logg("Done.")
 end
 
 
@@ -359,7 +266,6 @@ end
 
 --parses the header--
 function logheader()
-	clearlogg()
 	valid=1
 	if (selected==0) and not (files[index].directory) then
 		readfile = io.open("/"..folders[indexbkup].name.."/"..files[index].name,FREAD,archive)
@@ -371,17 +277,17 @@ function logheader()
 	if (valid==1) then
 		n=stringtonumber(io.read(readfile,2,1))
 		if (n==0) then
-			logg("Type: TXT",0)
+			logg("Type: TXT")
 		elseif (n==1) then
-			logg("Type: DAT",0)
+			logg("Type: DAT")
 		else
-			logg("Type "..n,0)
+			logg("Type "..n)
 		end
-		logg("Author: "..io.read(readfile,38,18),0)
+		logg("Author: "..io.read(readfile,38,18))
 		s=tostring(stringtonumber(io.read(readfile,60,4)))
-		logg("Blacklist ID: "..string.sub(s,1,string.len(s)-2),0)
+		logg("Blacklist ID: "..string.sub(s,1,string.len(s)-2))
 		s=tostring(stringtonumber(io.read(readfile,8,4)))
-		logg("Size: "..string.sub(s,1,string.len(s)-2),0)
+		logg("Size: "..string.sub(s,1,string.len(s)-2))
 		s1=tostring(stringtonumber(io.read(readfile,12,2)))
 		s1=string.sub(s1,1,string.len(s1)-2)
 		s2=tostring(stringtonumber(io.read(readfile,14,1)))
@@ -394,17 +300,17 @@ function logheader()
 		s5=string.sub(s5,1,string.len(s5)-2)
 		s6=tostring(stringtonumber(io.read(readfile,18,1)))
 		s6=string.sub(s6,1,string.len(s6)-2)
-		logg("Last edited: "..s1.."/"..s2.."/"..s3.." "..s4..":"..s5..":"..s6,1)
+		logg("Last edited: "..s1.."/"..s2.."/"..s3.." "..s4..":"..s5..":"..s6)
 		if (n==1) then
 			n=stringtonumber(io.read(readfile,88,1))
 			if (n==3) then
-				logg("Data type: color",0)
+				logg("Data type: color")
 			elseif (n==4) then
-				logg("Data type: int",0)
+				logg("Data type: int")
 			elseif (n==5) then
-				logg("Data type: real",0)
+				logg("Data type: real")
 			else
-				logg("Data type "..n,0)
+				logg("Data type "..n)
 			end
 			dim=stringtonumber(io.read(readfile,90,1))
 			s=""
@@ -420,180 +326,9 @@ function logheader()
 					s=s.." array"
 				end
 			end
-			logg(s,1)
-		end
-		io.close(readfile)
-	end
-end
-
-function parsetext(stri)
-	contents = {}
-	i = 0
-	linetext = ""
-	while i<string.len(stri) do --I don't like lua's for loops, they're disgusting
-		c = string.sub(stri,i,i)
-		if string.byte(c)==13 then
-			table.insert(contents,linetext)
-			linetext=""
-			i=i+1
-		else
-			linetext = linetext..c
-			if i==string.len(stri) then
-				table.insert(contents,linetext)
-				linetext=""
-			end
-		end
-		i=i+1
-	end
-	return contents
-end
-
-function showshop(content)
-	--Shop files--
-	Screen.fillRect(0,174,(shopindex-shopscroll-1)*15,(shopindex-shopscroll-1)*15+10,Color.new(80,80,80),TOP_SCREEN)
-	ind=0
-	for l, file in pairs(content) do
-		if string.sub(file,1,1)~=" " then
-			if ((ind-shopscroll)*15<240) and ((ind-shopscroll)*15>-1) then
-				Screen.debugPrint(0,(ind-shopscroll)*15,file,white,TOP_SCREEN)
-			end
-			ind=ind+1
+			logg(s)
 		end
 	end
-	--Bottom screen log--
-	for l, logg in pairs(logger) do
-		if (l>#logger-16) then
-			Screen.debugPrint(0,(15-(#logger-l))*15,logg,white,BOTTOM_SCREEN)
-		end
-	end
-	oldpad=pad
-	
-	Screen.flip()
-	Screen.waitVblankStart()
-	Screen.refresh()
-end
-
-function shop(content)
-	inshop=1
-	shopscroll=0
-	shopindex=1
-	actualshopindex=1
-	e=0
-	counter=60
-	clearlogg()
-	
-	maxind=0
-	for l,file in pairs(content) do
-		if string.sub(file,1,1)~=" " then maxind=maxind+1 end
-	end
-	while e==0 do
-		Screen.clear(TOP_SCREEN)
-		Screen.clear(BOTTOM_SCREEN)
-		pad = Controls.read()
-		
-		if counter==60 then
-			logg("Controls:",0)
-			logg("D-pad: Move cursor",0)
-			logg("A: View project description",0)
-			logg("Y: Download a project",0)
-			logg("B: Quit the shop",0)
-			if (System.checkBuild()==1) then
-				logg("Start: Exit",0)
-				logg("Select: Launch SmileBASIC",0)
-			else
-				logg("L+R+B+Down: Exit",0)
-			end
-		end
-		if counter<=60 then counter=counter+1 end
-		if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-			System.showHomeMenu()
-		end
-		if (Controls.check(pad,KEY_START)) and (System.checkBuild()==1) then
-			System.exit()
-		end
-		if (Controls.check(pad,KEY_SELECT)) and (System.checkBuild()==1) then
-			System.launchCIA(archive*0x100,SDMC)
-		end
-		
-		if (Controls.check(pad,KEY_DUP)) and not (Controls.check(oldpad,KEY_DUP)) then
-			if (shopindex>1) then
-				shopindex = shopindex - 1
-				repeat
-					actualshopindex=actualshopindex-1
-				until string.sub(content[actualshopindex],1,1)~=" "
-			end
-		elseif (Controls.check(pad,KEY_DDOWN)) and not (Controls.check(oldpad,KEY_DDOWN)) then
-			if (shopindex<maxind) then
-				shopindex = shopindex + 1
-				repeat
-					actualshopindex=actualshopindex+1
-				until string.sub(content[actualshopindex],1,1)~=" "
-			end
-		end
-		if (Controls.check(pad,KEY_DLEFT)) and not (Controls.check(oldpad,KEY_DLEFT)) then
-			l=0
-			while l<15 do
-				if (shopindex<maxind) then
-					shopindex = shopindex - 1
-					repeat
-						actualshopindex=actualshopindex-1
-					until string.sub(content[actualshopindex],1,1)~=" "
-				end
-				l=l+1
-			end
-		elseif (Controls.check(pad,KEY_DRIGHT)) and not (Controls.check(oldpad,KEY_DRIGHT)) then
-			l=0
-			while l<15 do
-				if (shopindex<maxind) then
-					shopindex = shopindex + 1
-					repeat
-						actualshopindex=actualshopindex+1
-					until string.sub(content[actualshopindex],1,1)~=" "
-				end
-				l=l+1
-			end
-		end
-		while ((shopindex-shopscroll)*15+15>235) and (shopscroll<maxind-15) do
-			scroll = scroll+1
-		end
-		while ((shopindex-shopscroll)*15<5) and (shopscroll>1) do
-			scroll = scroll-1
-		end
-		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
-			l=actualshopindex+1
-			while string.sub(content[l],1,2)==" -" do
-				logg(string.sub(content[l],3,#content[l]),1)
-				l=l+1
-				if l>=#content then break end
-			end
-		end
-		if (Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y)) then
-			projname=content[actualshopindex]
-			System.createDirectory("/"..projname)
-			System.createExtdataDir("/"..projname,archive)
-			l=actualshopindex+1
-			while string.sub(content[l],1,1)==" " do
-				if string.sub(content[l],2,2)~="-" then
-					filename=string.sub(content[l],2,#content[l])
-					logg("Downloading /"..projname.."/"..filename,1)
-					Network.downloadFile("http://trinitro21.cf/sbfm/"..projname.."/"..filename,"/"..projname.."/"..filename)
-					SDtoSB("/"..projname.."/"..filename,"/"..projname.."/"..filename)
-					logg("Deleting /"..projname.."/"..filename,1)
-					System.deleteFile("/"..projname.."/"..filename)
-				end
-				l=l+1
-				if l>=#content then break end
-			end
-			logg("Deleting /"..projname,1)
-			System.deleteDirectory("/"..projname)
-			counter=0
-		end
-		if (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
-			e=1
-		end
-		showshop(content)
-	end
-	inshop=0
 end
 
 --variable declaration--
@@ -616,12 +351,23 @@ sdindex = 1 --cursor variable for SD file browser--
 selected = 0 --which file browser is being used--
 logger = {} --table for logs on bottom screen - debug stuff and messages--
 MAX_RAM_ALLOCATION = 10485760 --used for copying--
-counter = 60 --resets logg to controls when it reaches 120--
-
-inshop=0--is the user in the shop
 
 Screen.waitVblankStart()
 Screen.refresh()
+
+logg("Controls:")
+logg("D-pad: Move cursor")
+logg("L/R: Switch between file browsers")
+logg("A: Navigate into a folder/list header")
+logg("B: Navigate out of a folder")
+logg("Y: Copy a file or folder")
+logg("X: Copy the code of a file or folder")
+if (System.checkBuild()==1) then
+	logg("Start: Exit")
+	logg("Select: Launch SmileBASIC")
+else
+	logg("L+R+B+Down: Exit")
+end
 
 while true do
 	Screen.clear(TOP_SCREEN)
@@ -636,24 +382,6 @@ while true do
 	if (Controls.check(pad,KEY_SELECT)) and (System.checkBuild()==1) then
 		System.launchCIA(archive*0x100,SDMC)
 	end
-	
-	if counter==60 then
-		clearlogg()
-		logg("Controls:",0)
-		logg("D-pad: Move cursor",0)
-		logg("L/R: Switch between file browsers",0)
-		logg("A: Navigate into a folder/list header",0)
-		logg("B: Navigate out of a folder",0)
-		logg("Y: Copy a file or folder",0)
-		logg("X: Go to the online shop",0)
-		if (System.checkBuild()==1) then
-			logg("Start: Exit",0)
-			logg("Select: Launch SmileBASIC",0)
-		else
-			logg("L+R+B+Down: Exit",0)
-		end
-	end
-	if counter<=60 then counter=counter+1 end
 	
 	--SmileBASIC file viewer controls--
 	if selected == 0 then
@@ -766,17 +494,68 @@ while true do
 	end
 	--copy--
 	if (Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y)) then
-		copy()
-	end
-	if (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
-		if Network.isWifiEnabled() then--can't access online store without interwebs access
-			list=Network.requestString("http://trinitro21.cf/sbfm/list.txt")
-			storelist = parsetext(list)
-			shop(storelist) --go to the shop subroutine
+		logg("Copying...")
+		if (selected==0) then
+			if (files[index].directory) then
+				System.createDirectory(System.currentDirectory()..files[index].name)
+				insidefolder=SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
+				for l,file in pairs(insidefolder) do
+					SBtoSD("/"..files[index].name.."/"..file.name,System.currentDirectory()..files[index].name.."/"..file.name)
+				end
+			else
+				SBtoSD("/"..folders[indexbkup].name.."/"..files[index].name,System.currentDirectory()..files[index].name)
+			end
+			sdfiles = SortDirectory(System.listDirectory(System.currentDirectory()))
+		elseif (selected==1) and not (files[index].directory and not sdfiles[sdindex].directory) then
+			if (sdfiles[sdindex].directory) then
+				System.createExtdataDir("/"..sdfiles[sdindex].name,archive)
+				insidefolder=SortDirectory(System.listDirectory(System.currentDirectory()..sdfiles[sdindex].name.."/"))
+				for l,file in pairs(insidefolder) do
+					SDtoSB(System.currentDirectory()..sdfiles[sdindex].name.."/"..file.name,"/"..sdfiles[sdindex].name.."/"..file.name)
+				end
+			else
+				SDtoSB(System.currentDirectory()..sdfiles[sdindex].name,"/"..folders[indexbkup].name.."/"..sdfiles[sdindex].name)
+			end
+			if (files[index].directory) then
+				files = SortDirectory(System.listExtdataDir("/",archive))
+			else
+				files = SortDirectory(System.listExtdataDir("/"..folders[indexbkup].name.."/",archive))
+			end
 		else
-			logg("This feature needs wifi.",0)
-			logg("Please enable it.",1)
-			counter=0
+			logg("Could not copy.")
+		end
+	end
+	--sandwich copying
+	if (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
+		logg("Copying code only...")
+		if (selected==0) then
+			if (files[index].directory) then
+				System.createDirectory(System.currentDirectory()..files[index].name)
+				insidefolder=SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
+				for l,file in pairs(insidefolder) do
+					SBtoSDsand("/"..files[index].name.."/"..file.name,System.currentDirectory()..files[index].name.."/"..file.name)
+				end
+			else
+				SBtoSDsand("/"..folders[indexbkup].name.."/"..files[index].name,System.currentDirectory()..files[index].name)
+			end
+			sdfiles = SortDirectory(System.listDirectory(System.currentDirectory()))
+		elseif (selected==1) and not (files[index].directory and not sdfiles[sdindex].directory) then
+			if (sdfiles[sdindex].directory) then
+				System.createExtdataDir("/"..sdfiles[sdindex].name,archive)
+				insidefolder=SortDirectory(System.listDirectory(System.currentDirectory()..sdfiles[sdindex].name.."/"))
+				for l,file in pairs(insidefolder) do
+					SDtoSBsand(System.currentDirectory()..sdfiles[sdindex].name.."/"..file.name,"/"..sdfiles[sdindex].name.."/"..file.name)
+				end
+			else
+				SDtoSBsand(System.currentDirectory()..sdfiles[sdindex].name,"/"..folders[indexbkup].name.."/"..sdfiles[sdindex].name)
+			end
+			if (files[index].directory) then
+				files = SortDirectory(System.listExtdataDir("/",archive))
+			else
+				files = SortDirectory(System.listExtdataDir("/"..folders[indexbkup].name.."/",archive))
+			end
+		else
+			logg("Could not copy.")
 		end
 	end
 	
