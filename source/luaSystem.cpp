@@ -169,7 +169,7 @@ static int lua_openfile(lua_State *L)
 {
 	int argc = lua_gettop(L);
 	#ifndef SKIP_ERROR_HANDLING
-		if ((argc != 2) && (argc != 3)) return luaL_error(L, "wrong number of arguments");
+		if ((argc != 2) && (argc != 3) && (argc != 4)) return luaL_error(L, "wrong number of arguments");
 	#endif
 	const char *file_tbo = luaL_checkstring(L, 1);
 	int type = luaL_checkinteger(L, 2);

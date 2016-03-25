@@ -27,7 +27,7 @@ include $(DEVKITARM)/3ds_rules
 #     - icon.png
 #     - <libctru folder>/default_icon.png
 #---------------------------------------------------------------------------------
-TARGET		:=	$(notdir $(CURDIR))
+TARGET		:=	sbfilemanager
 BUILD		:=	build
 SOURCES		:=	source/include/lua	source source/include source/include/graphics \
 				source/include/ftp source/include/sf2d \
@@ -36,9 +36,9 @@ SOURCES		:=	source/include/lua	source source/include source/include/graphics \
 DATA		:=	data
 INCLUDES	:=	source/include
 
-APP_TITLE	:=	Lua Player Plus 3DS
-APP_AUTHOR	:=	Rinnegatamante
-APP_DESCRIPTION	:=	Lua Interpreter for 3DS
+APP_TITLE	:=	SmileBASIC File Manager
+APP_AUTHOR	:=	Trinitro21
+APP_DESCRIPTION	:=	Copy files from SmileBASIC to your SD card.
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------

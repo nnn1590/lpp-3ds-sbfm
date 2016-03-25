@@ -431,7 +431,7 @@ function parsetext(stri)
 	contents = {}
 	i = 0
 	linetext = ""
-	while i<string.len(stri) do --I don't like lua's for loops, they're disgusting
+	while i<=string.len(stri) do --I don't like lua's for loops, they're disgusting
 		c = string.sub(stri,i,i)
 		if string.byte(c)==13 then
 			table.insert(contents,linetext)
@@ -493,6 +493,7 @@ function shop(content)
 		pad = Controls.read()
 		
 		if counter==60 then
+			clearlogg()
 			logg("Controls:",0)
 			logg("D-pad: Move cursor",0)
 			logg("A: View project description",0)
@@ -564,8 +565,8 @@ function shop(content)
 			l=actualshopindex+1
 			while string.sub(content[l],1,2)==" -" do
 				logg(string.sub(content[l],3,#content[l]),1)
+				if l==#content then break end
 				l=l+1
-				if l>=#content then break end
 			end
 		end
 		if (Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y)) then
@@ -582,8 +583,8 @@ function shop(content)
 					logg("Deleting /"..projname.."/"..filename,1)
 					System.deleteFile("/"..projname.."/"..filename)
 				end
+				if l==#content then break end
 				l=l+1
-				if l>=#content then break end
 			end
 			logg("Deleting /"..projname,1)
 			System.deleteDirectory("/"..projname)
@@ -595,6 +596,11 @@ function shop(content)
 		showshop(content)
 	end
 	inshop=0
+	folders = SortDirectory(System.listExtdataDir("/",archive))
+	files = folders
+	scroll = 1
+	index = 1
+	counter = 0
 end
 
 --variable declaration--
