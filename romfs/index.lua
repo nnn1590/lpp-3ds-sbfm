@@ -80,7 +80,8 @@ function copy()
 	logg(" and footer",0)
 	logg("X: Copy only the code of a file. Only")
 	logg(" use this when you have a file",0)
-	logg(" containing only the code for a program",1)
+	logg(" containing only the code for a",0)
+	logg(" program",1)
 	repeat
 		oldpad=pad
 		pad = Controls.read()
