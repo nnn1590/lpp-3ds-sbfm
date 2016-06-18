@@ -19,7 +19,7 @@ function SortDirectory(dir)
 	return_table = TableConcat(folders_table,files_table)
 	return return_table
 end
---shamefully copied from ORGANIZ3D--
+--copied from ORGANIZ3D--
 
 
 --adds something to the bottom screen--
@@ -35,7 +35,22 @@ end
 function clearlogg()
 	for k,v in pairs(logger) do logger[k]=nil end
 end
-
+function syscontrols()
+	pad = Controls.read()
+	if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
+		System.showHomeMenu()
+	end
+	-- Exit if HomeMenu calls APP_EXITING
+    if System.checkStatus() == APP_EXITING then
+        System.exit()
+    end
+	if (Controls.check(pad,KEY_START)) and (System.checkBuild()==1) then
+		System.exit()
+	end
+	if (Controls.check(pad,KEY_SELECT)) and (System.checkBuild()==1) then
+		System.launchCIA(archive*0x100,SDMC)
+	end
+end
 --prints everything--
 function updatescreen()
 	--SmileBASIC files--
@@ -69,6 +84,14 @@ function updatescreen()
 	Screen.refresh()
 end
 
+function isdir(t,i)
+	if #t==0 then
+		ans=false
+	else
+		ans=t[i].directory
+	end
+	return ans
+end
 
 --copy functions--
 function copy()
@@ -97,58 +120,72 @@ function copy()
 	elseif (Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y)) then
 		logg("Copying...",1)
 		if (selected==0) then
-			if (files[index].directory) then
+			if (isdir(files,index)) then
 				System.createDirectory(System.currentDirectory()..files[index].name)
 				insidefolder=SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
 				for l,file in pairs(insidefolder) do
 					SBtoSD("/"..files[index].name.."/"..file.name,System.currentDirectory()..files[index].name.."/"..file.name)
 				end
-			else
+			elseif not (#files==0) then
 				SBtoSD("/"..folders[indexbkup].name.."/"..files[index].name,System.currentDirectory()..files[index].name)
+			else
+				logg("You can't copy anything from",0)
+				logg("an empty folder.",1)
 			end
 			sdfiles = SortDirectory(System.listDirectory(System.currentDirectory()))
-		elseif (selected==1) and not (files[index].directory and not sdfiles[sdindex].directory) then
-			if (sdfiles[sdindex].directory) then
+		elseif (selected==1) and not (isdir(files,index) and not isdir(sdfiles,sdindex)) then
+			if (isdir(sdfiles,sdindex)) then
 				System.createExtdataDir("/"..sdfiles[sdindex].name,archive)
 				insidefolder=SortDirectory(System.listDirectory(System.currentDirectory()..sdfiles[sdindex].name.."/"))
 				for l,file in pairs(insidefolder) do
 					SDtoSB(System.currentDirectory()..sdfiles[sdindex].name.."/"..file.name,"/"..sdfiles[sdindex].name.."/"..file.name)
 				end
-			else
+			elseif not (#sdfiles==0) then
 				SDtoSB(System.currentDirectory()..sdfiles[sdindex].name,"/"..folders[indexbkup].name.."/"..sdfiles[sdindex].name)
+			else
+				logg("You can't copy anything from",0)
+				logg("an empty folder.",1)
 			end
-			if (files[index].directory) then
+			if (isdir(files,index)) then
 				files = SortDirectory(System.listExtdataDir("/",archive))
 			else
 				files = SortDirectory(System.listExtdataDir("/"..folders[indexbkup].name.."/",archive))
 			end
 		else
-			logg("Could not copy.",1)
+			logg("Could not copy.",0)
+			logg("Go into a folder in the SB",0)
+			logg("pane to copy the file.",1)
 		end
 	elseif (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
 		logg("Copying code only...",1)
 		if (selected==0) then
-			if (files[index].directory) then
+			if (isdir(files,index)) then
 				System.createDirectory(System.currentDirectory()..files[index].name)
 				insidefolder=SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
 				for l,file in pairs(insidefolder) do
 					SBtoSDsand("/"..files[index].name.."/"..file.name,System.currentDirectory()..files[index].name.."/"..file.name)
 				end
-			else
+			elseif not (#files==0) then
 				SBtoSDsand("/"..folders[indexbkup].name.."/"..files[index].name,System.currentDirectory()..files[index].name)
+			else
+				logg("You can't copy anything from",0)
+				logg("an empty folder.",1)
 			end
 			sdfiles = SortDirectory(System.listDirectory(System.currentDirectory()))
-		elseif (selected==1) and not (files[index].directory and not sdfiles[sdindex].directory) then
-			if (sdfiles[sdindex].directory) then
+		elseif (selected==1) and not (isdir(files,index) and not isdir(sdfiles,sdindex)) then
+			if (isdir(sdfiles,sdindex)) then
 				System.createExtdataDir("/"..sdfiles[sdindex].name,archive)
 				insidefolder=SortDirectory(System.listDirectory(System.currentDirectory()..sdfiles[sdindex].name.."/"))
 				for l,file in pairs(insidefolder) do
 					SDtoSBsand(System.currentDirectory()..sdfiles[sdindex].name.."/"..file.name,"/"..sdfiles[sdindex].name.."/"..file.name)
 				end
-			else
+			elseif not (#sdfiles==0) then
 				SDtoSBsand(System.currentDirectory()..sdfiles[sdindex].name,"/"..folders[indexbkup].name.."/"..sdfiles[sdindex].name)
+			else
+				logg("You can't copy anything from",0)
+				logg("an empty folder.",1)
 			end
-			if (files[index].directory) then
+			if (isdir(files,index)) then
 				files = SortDirectory(System.listExtdataDir("/",archive))
 			else
 				files = SortDirectory(System.listExtdataDir("/"..folders[indexbkup].name.."/",archive))
@@ -362,9 +399,9 @@ end
 function logheader()
 	clearlogg()
 	valid=1
-	if (selected==0) and not (files[index].directory) then
+	if (selected==0) and not (isdir(files,index)) then
 		readfile = io.open("/"..folders[indexbkup].name.."/"..files[index].name,FREAD,archive)
-	elseif (selected==1) and not (sdfiles[sdindex].directory) then
+	elseif (selected==1) and not (isdir(sdfiles,sdindex)) then
 		readfile = io.open(System.currentDirectory()..sdfiles[sdindex].name,FREAD)
 	else
 		valid=0
@@ -490,7 +527,6 @@ function shop(content)
 	while e==0 do
 		Screen.clear(TOP_SCREEN)
 		Screen.clear(BOTTOM_SCREEN)
-		pad = Controls.read()
 		
 		if counter==60 then
 			clearlogg()
@@ -507,15 +543,7 @@ function shop(content)
 			end
 		end
 		if counter<=60 then counter=counter+1 end
-		if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-			System.showHomeMenu()
-		end
-		if (Controls.check(pad,KEY_START)) and (System.checkBuild()==1) then
-			System.exit()
-		end
-		if (Controls.check(pad,KEY_SELECT)) and (System.checkBuild()==1) then
-			System.launchCIA(archive*0x100,SDMC)
-		end
+		syscontrols()
 		
 		if (Controls.check(pad,KEY_DUP)) and not (Controls.check(oldpad,KEY_DUP)) then
 			if (shopindex>1) then
@@ -578,7 +606,7 @@ function shop(content)
 				if string.sub(content[l],2,2)~="-" then
 					filename=string.sub(content[l],2,#content[l])
 					logg("Downloading /"..projname.."/"..filename,1)
-					Network.downloadFile("http://trinitro21.cf/sbfm/"..projname.."/"..filename,"/"..projname.."/"..filename)
+					Network.downloadFile(shoploc..projname.."/"..filename,"/"..projname.."/"..filename)
 					SDtoSB("/"..projname.."/"..filename,"/"..projname.."/"..filename)
 					logg("Deleting /"..projname.."/"..filename,1)
 					System.deleteFile("/"..projname.."/"..filename)
@@ -626,6 +654,7 @@ MAX_RAM_ALLOCATION = 10485760 --used for copying--
 counter = 60 --resets logg to controls when it reaches 120--
 
 inshop=0--is the user in the shop
+shoploc="http://50.48.203.247/sbfm/"
 
 Screen.waitVblankStart()
 Screen.refresh()
@@ -633,16 +662,7 @@ Screen.refresh()
 while true do
 	Screen.clear(TOP_SCREEN)
 	Screen.clear(BOTTOM_SCREEN)
-	pad = Controls.read()
-	if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-		System.showHomeMenu()
-	end
-	if (Controls.check(pad,KEY_START)) and (System.checkBuild()==1) then
-		System.exit()
-	end
-	if (Controls.check(pad,KEY_SELECT)) and (System.checkBuild()==1) then
-		System.launchCIA(archive*0x100,SDMC)
-	end
+	syscontrols()
 	
 	if counter==60 then
 		clearlogg()
@@ -691,7 +711,7 @@ while true do
 		end
 		--go inside a folder/log header--
 		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
-			if (files[index].directory) then
+			if (isdir(files,index)) then
 				files = SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
 				indexbkup=index
 				index=1
@@ -742,7 +762,7 @@ while true do
 		end
 		--go inside a folder/log header--
 		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
-			if (sdfiles[sdindex].directory) then
+			if (isdir(sdfiles,sdindex)) then
 				dir=dir..sdfiles[sdindex].name.."/"
 				System.currentDirectory(dir)
 				sdfiles = SortDirectory(System.listDirectory(dir))
@@ -777,7 +797,8 @@ while true do
 	end
 	if (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
 		if Network.isWifiEnabled() then--can't access online store without interwebs access
-			list=Network.requestString("http://trinitro21.cf/sbfm/list.txt")
+			shoploc=System.startKeyboard("http://50.48.203.247/sbfm/")
+			list=Network.requestString(shoploc.."list.txt")
 			storelist = parsetext(list)
 			shop(storelist) --go to the shop subroutine
 		else
