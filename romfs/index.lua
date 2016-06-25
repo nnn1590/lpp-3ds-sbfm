@@ -654,7 +654,7 @@ MAX_RAM_ALLOCATION = 10485760 --used for copying--
 counter = 60 --resets logg to controls when it reaches 120--
 
 inshop=0--is the user in the shop
-shoploc="http://50.48.203.247/sbfm/"
+shoploc="http://trinitro21.cf/sbfm/"
 
 Screen.waitVblankStart()
 Screen.refresh()
@@ -797,7 +797,7 @@ while true do
 	end
 	if (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
 		if Network.isWifiEnabled() then--can't access online store without interwebs access
-			shoploc=System.startKeyboard("http://50.48.203.247/sbfm/")
+			shoploc=System.startKeyboard(shoploc)
 			list=Network.requestString(shoploc.."list.txt")
 			storelist = parsetext(list)
 			shop(storelist) --go to the shop subroutine
