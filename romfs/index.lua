@@ -111,6 +111,10 @@ function copy()
 		if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
 			System.showHomeMenu()
 		end
+		-- Exit if HomeMenu calls APP_EXITING
+		if System.checkStatus() == APP_EXITING then
+			System.exit()
+		end
 		Screen.waitVblankStart()
 	until (((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))))
 	clearlogg()
@@ -238,8 +242,15 @@ function SDtoSB(SDdir,SBdir)
 		i=i+1
 	end
 	if (string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir)-i+1)~="B") and (string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir)-i+1)~="T") then
-		logg("Adding T to filename",1)
-		SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."T"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
+		if io.read(readfile,2,1)==1 then
+			logg("This looks like a DAT file",0)
+			logg("Adding B to filename",1)
+			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."B"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
+		else
+			logg("This looks like a TXT file",0)
+			logg("Adding T to filename",1)
+			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."T"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
+		end
 	end
 	writefile = io.open(SBdir,FCREATE,archive,filesize)
 	--open SB file for creating and writing--
@@ -311,13 +322,42 @@ function SDtoSBsand(SDdir,SBdir)
 			logg("Using the DAT file header",1)
 			s=hextostring("01 00 01 00 00 00 00 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
 		end
-	else
-		if (string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir)-i+1)~="T") then
-			logg("Adding T to filename",1)
-			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."T"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
-		end
+	elseif (string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir)-i+1)=="T") then
 		logg("Using the TXT file header",1)
 		s=hextostring("01 00 00 00 00 00 01 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
+	else
+		logg("Is this a TXT, DAT, or GRP file?",0)
+		logg("A: TXT",0)
+		logg("B: DAT",0)
+		logg("Y: GRP",1)
+		repeat
+			oldpad=pad
+			pad = Controls.read()
+			if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
+				System.showHomeMenu()
+			end
+			-- Exit if HomeMenu calls APP_EXITING
+			if System.checkStatus() == APP_EXITING then
+				System.exit()
+			end
+			Screen.waitVblankStart()
+		until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))))
+		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
+			logg("Adding T to filename",0)
+			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."T"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
+			logg("Using the TXT file header",1)
+			s=hextostring("01 00 00 00 00 00 01 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
+		elseif (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
+			logg("Adding B to filename",0)
+			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."B"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
+			logg("Using the DAT file header",1)
+			s=hextostring("01 00 01 00 00 00 00 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
+		elseif (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
+			logg("Adding B to filename",0)
+			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."B"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
+			logg("Using the GRP file header",1)
+			s=hextostring("01 00 01 00 00 00 02 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
+		end
 	end
 	writefile = io.open(SBdir,FCREATE,archive,filesize+100)
 	--open SB file for creating and writing--
@@ -591,7 +631,7 @@ function shop(content)
 		end
 		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
 			l=actualshopindex+1
-			while string.sub(content[l],1,2)==" -" do
+			while string.sub(content[l],1,2)==" >" do --new description syntax since filenames can start with -
 				logg(string.sub(content[l],3,#content[l]),1)
 				if l==#content then break end
 				l=l+1
@@ -798,7 +838,7 @@ while true do
 	if (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
 		if Network.isWifiEnabled() then--can't access online store without interwebs access
 			shoploc=System.startKeyboard(shoploc)
-			list=Network.requestString(shoploc.."list.txt")
+			list=Network.requestString(shoploc.."list.php")
 			storelist = parsetext(list)
 			shop(storelist) --go to the shop subroutine
 		else
