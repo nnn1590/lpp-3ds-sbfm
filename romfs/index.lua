@@ -656,26 +656,39 @@ function SBtoSDdat(SBdir,SDdir)
 	--close files--
 	logg("Done.",1)
 end
-function getdatheader()
+function getdatheader(filesize)
 	o=hextostring("50 43 42 4E 30 30 30 31")
 	repeat
 		n=keyboardinput("Type (col, int, or real):","",false)
 	until (n=="col" or n=="int" or n=="real")
-	if n=="col" then o=o..numbertostring(3,2)
-	elseif n=="int" then o=o..numbertostring(4,2)
-	elseif n=="real" then o=o..numbertostring(5,2) end
+	if n=="col" then
+		typ=1
+		o=o..numbertostring(3,2)
+	elseif n=="int" then
+		typ=2
+		o=o..numbertostring(4,2)
+	elseif n=="real" then
+		typ=3
+		o=o..numbertostring(5,2)
+	end
 	repeat
 		n=numpadinput("Number of dimensions (1, 2, 3, or 4):","")
 	until ((not string.find(n,"%D")) and tonumber(n)<=4 and tonumber(n)>=1)
 	o=o..numbertostring(tonumber(n),2)
+	sizes={2,4,8}
+	if n=="1" then 
+		num=filesize/sizes[typ]
+	end
 	nums={"1st","2nd","3rd","4th"}
 	i=1
 	while i<=4 do
 		if i<=tonumber(n) then
-			repeat
-				num=numpadinput(nums[i].." dimension size:","")
-			until ((not string.find(n,"%D")) and tonumber(num)>0)
-			num=tonumber(num)
+			if n~="1" then
+				repeat
+					num=numpadinput(nums[i].." dimension size:","")
+				until ((not string.find(n,"%D")) and tonumber(num)>0)
+				num=tonumber(num)
+			end
 		else
 			num=0
 		end
@@ -706,7 +719,7 @@ function SDtoSBdat(SDdir,SBdir)
 	if okay then
 		logg("Using the DAT file header",1)
 		s=hextostring("01 00 01 00 00 00 00 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
-		s=s..getdatheader()
+		s=s..getdatheader(filesize)
 	else
 		logg("Using the GRP file header",1)
 		s=hextostring("01 00 01 00 00 00 02 00")..numbertostring(filesize,4)..hextostring("DF 07 0A 0F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00")
@@ -718,7 +731,7 @@ function SDtoSBdat(SDdir,SBdir)
 		if okay then
 			s=s..hextostring("50 43 42 4E 30 30 30 31 03 00 02 00 00 02 00 00 00 02 00 00 30 37 2B 00 CC 1C 2E 00") --generic GRP header
 		else
-			s=s..getdatheader()
+			s=s..getdatheader(filesize)
 		end
 	end
 	writefile = io.open(SBdir,FCREATE,archive,filesize+128)
