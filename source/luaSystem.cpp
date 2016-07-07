@@ -111,60 +111,6 @@ static int lua_dofile (lua_State *L) {
 	return (int)dofilecont;
 }
 
-static int lua_createextdatadir(lua_State *L) {
-	int argc = lua_gettop(L);
-	#ifndef SKIP_ERROR_HANDLING
-		if (argc != 2) return luaL_error(L, "wrong number of arguments");
-	#endif
-	const char *path = luaL_checkstring(L, 1);
-	u32 archive_id = luaL_checknumber(L, 2);
-	FS_MediaType mtype;
-	FS_ArchiveID atype;
-	if (archive_id < 0x2000){
-		mtype = MEDIATYPE_SD;
-		atype = ARCHIVE_EXTDATA;
-	}else{
-		mtype = MEDIATYPE_NAND;
-		atype = ARCHIVE_SHARED_EXTDATA;
-	}
-	u32 main_extdata_archive_lowpathdata[3] = {mtype, archive_id, 0};
-	FS_Archive main_extdata_archive = (FS_Archive){atype, (FS_Path){PATH_BINARY, 0xC, (u8*)main_extdata_archive_lowpathdata}};
-	Result ret = FSUSER_OpenArchive( &main_extdata_archive);
-	#ifndef SKIP_ERROR_HANDLING
-		if(ret!=0) return luaL_error(L, "cannot access extdata archive");
-	#endif
-	FS_Path filePath=fsMakePath(PATH_ASCII, path);
-	FSUSER_CreateDirectory(main_extdata_archive,filePath, FS_ATTRIBUTE_DIRECTORY);
-	FSUSER_CloseArchive( &main_extdata_archive);
-	return 0;
-}
-
-static int lua_deleteextfile(lua_State *L)
-{
-	int argc = lua_gettop(L);
-	#ifndef SKIP_ERROR_HANDLING
-		if (argc != 2) return luaL_error(L, "wrong number of arguments");
-	#endif
-	const char *file_tbo = luaL_checkstring(L, 1);
-	u32 archive_id = luaL_checknumber(L,2);
-	FS_MediaType mtype;
-	FS_ArchiveID atype;
-	if (archive_id < 0x2000){
-		mtype = MEDIATYPE_SD;
-		atype = ARCHIVE_EXTDATA;
-	}else{
-		mtype = MEDIATYPE_NAND;
-		atype = ARCHIVE_SHARED_EXTDATA;
-	}
-	u32 main_extdata_archive_lowpathdata[3] = {mtype, archive_id, 0};
-	FS_Archive main_extdata_archive = (FS_Archive){atype, (FS_Path){PATH_BINARY, 0xC, (u8*)main_extdata_archive_lowpathdata}};
-	Result ret = FSUSER_OpenArchive( &main_extdata_archive);
-	#ifndef SKIP_ERROR_HANDLING
-		if(ret!=0) return luaL_error(L, "cannot access extdata archive");
-	#endif
-	ret = FSUSER_DeleteFile(main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo));
-}
-
 static int lua_openfile(lua_State *L)
 {
 	int argc = lua_gettop(L);
@@ -175,14 +121,13 @@ static int lua_openfile(lua_State *L)
 	int type = luaL_checkinteger(L, 2);
 	u32 archive_id;
 	bool extdata = false;
-	int sizeoffiletocreate = 0;
-	if (argc > 2){
+	u32 filesize;
+	if (argc >= 3){
 		archive_id = luaL_checknumber(L,3);
 		extdata = true;
-		if (argc > 3){
-			sizeoffiletocreate = luaL_checknumber(L,4);
-		}
+		if (argc == 4) filesize = luaL_checkinteger(L, 4);
 	}
+	FS_Path filePath=fsMakePath(PATH_ASCII, file_tbo);
 	Handle fileHandle;
 	Result ret;
 	fileStream* result;
@@ -212,26 +157,28 @@ static int lua_openfile(lua_State *L)
 		#endif
 		switch(type){
 			case 0:
-				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo), FS_OPEN_READ, 0);
+				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, filePath, FS_OPEN_READ, 0);
 				break;
 			case 1:
-				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo), FS_OPEN_WRITE, 0);
+				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, filePath, FS_OPEN_WRITE, 0);
 				break;
 			case 2:
-				ret = FSUSER_DeleteFile(main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo));
-				ret = FSUSER_CreateFile(main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo), 0, sizeoffiletocreate);
-				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, fsMakePath(PATH_ASCII, file_tbo), FS_OPEN_WRITE, 0);
+				FSUSER_DeleteFile(main_extdata_archive, filePath);
+				ret = FSUSER_CreateFile(main_extdata_archive, filePath, 0, filesize);
+				#ifndef SKIP_ERROR_HANDLING
+					if (ret) return luaL_error(L, "error creating the file.");
+				#endif
+				ret = FSUSER_OpenFile( &fileHandle, main_extdata_archive, filePath, FS_OPEN_WRITE, 0);
 				break;
 		}
 		#ifndef SKIP_ERROR_HANDLING
-			if (ret) return luaL_error(L, "file doesn't exist.");
+			if (ret) return luaL_error(L, "error opening file.");
 		#endif
 		result = (fileStream*)malloc(sizeof(fileStream));
 		result->handle = (u32)fileHandle;
 		result->isRomfs = false;
 	}else{
 		FS_Archive sdmcArchive=(FS_Archive){ARCHIVE_SDMC, (FS_Path){PATH_EMPTY, 1, (u8*)""}};
-		FS_Path filePath=fsMakePath(PATH_ASCII, file_tbo);
 		switch(type){
 			case 0:
 				ret=FSUSER_OpenFileDirectly( &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, 0x00000000);
@@ -604,43 +551,109 @@ static int lua_rendir(lua_State *L) {
 static int lua_createdir(lua_State *L) {
 	int argc = lua_gettop(L);
 	#ifndef SKIP_ERROR_HANDLING
-		if (argc != 1) return luaL_error(L, "wrong number of arguments");
+		if (argc != 1 && argc != 2) return luaL_error(L, "wrong number of arguments");
 	#endif
 	const char *path = luaL_checkstring(L, 1);
-	FS_Archive sdmcArchive = (FS_Archive){0x9, (FS_Path){PATH_EMPTY, 1, (u8*)""}};
-	FSUSER_OpenArchive( &sdmcArchive);
-	FS_Path filePath=fsMakePath(PATH_ASCII, path);
-	FSUSER_CreateDirectory(sdmcArchive,filePath, FS_ATTRIBUTE_DIRECTORY);
-	FSUSER_CloseArchive( &sdmcArchive);
+	if (argc == 2){
+		u32 archive_id = luaL_checkinteger(L, 2);
+		FS_MediaType mtype;
+		FS_ArchiveID atype;
+		if (archive_id < 0x2000){
+			mtype = MEDIATYPE_SD;
+			atype = ARCHIVE_EXTDATA;
+		}else{
+			mtype = MEDIATYPE_NAND;
+			atype = ARCHIVE_SHARED_EXTDATA;
+		}
+		u32 main_extdata_archive_lowpathdata[3] = {mtype, archive_id, 0};
+		FS_Archive archive2 = (FS_Archive){atype, (FS_Path){PATH_BINARY, 0xC, (u8*)main_extdata_archive_lowpathdata}};
+		Result ret = FSUSER_OpenArchive( &archive2);
+		#ifndef SKIP_ERROR_HANDLING
+			if(ret!=0) return luaL_error(L, "cannot access extdata archive");
+		#endif
+		FS_Path filePath=fsMakePath(PATH_ASCII, path);
+		FSUSER_CreateDirectory(archive2,filePath, FS_ATTRIBUTE_DIRECTORY);
+		FSUSER_CloseArchive( &archive2);
+	}else{
+		FS_Archive archive2 = (FS_Archive){0x9, (FS_Path){PATH_EMPTY, 1, (u8*)""}};
+		Result ret = FSUSER_OpenArchive( &archive2);
+		FS_Path filePath=fsMakePath(PATH_ASCII, path);
+		FSUSER_CreateDirectory(archive2,filePath, FS_ATTRIBUTE_DIRECTORY);
+		FSUSER_CloseArchive( &archive2);
+	}
 	return 0;
 }
 
 static int lua_deldir(lua_State *L) {
 	int argc = lua_gettop(L);
 	#ifndef SKIP_ERROR_HANDLING
-		if (argc != 1) return luaL_error(L, "wrong number of arguments");
+		if (argc != 1 && argc != 2) return luaL_error(L, "wrong number of arguments");
 	#endif
 	const char *path = luaL_checkstring(L, 1);
-	FS_Archive sdmcArchive = (FS_Archive){0x9, (FS_Path){PATH_EMPTY, 1, (u8*)""}};
-	FSUSER_OpenArchive( &sdmcArchive);
-	FS_Path filePath=fsMakePath(PATH_ASCII, path);
-	FSUSER_DeleteDirectory(sdmcArchive,filePath);
-	FSUSER_CloseArchive( &sdmcArchive);
+	if (argc == 2){
+		u32 archive_id = luaL_checkinteger(L, 2);
+		FS_MediaType mtype;
+		FS_ArchiveID atype;
+		if (archive_id < 0x2000){
+			mtype = MEDIATYPE_SD;
+			atype = ARCHIVE_EXTDATA;
+		}else{
+			mtype = MEDIATYPE_NAND;
+			atype = ARCHIVE_SHARED_EXTDATA;
+		}
+		u32 main_extdata_archive_lowpathdata[3] = {mtype, archive_id, 0};
+		FS_Archive archive2 = (FS_Archive){atype, (FS_Path){PATH_BINARY, 0xC, (u8*)main_extdata_archive_lowpathdata}};
+		Result ret = FSUSER_OpenArchive( &archive2);
+		#ifndef SKIP_ERROR_HANDLING
+			if(ret!=0) return luaL_error(L, "cannot access extdata archive");
+		#endif
+		FS_Path filePath=fsMakePath(PATH_ASCII, path);
+		FSUSER_DeleteDirectory(archive2,filePath);
+		FSUSER_CloseArchive( &archive2);
+	}else{
+		FS_Archive archive2 = (FS_Archive){0x9, (FS_Path){PATH_EMPTY, 1, (u8*)""}};
+		FSUSER_OpenArchive( &archive2);
+		FS_Path filePath=fsMakePath(PATH_ASCII, path);
+		FSUSER_DeleteDirectory(archive2,filePath);
+		FSUSER_CloseArchive( &archive2);
+	}
 	return 0;
 }
 
 static int lua_delfile(lua_State *L) {
 	int argc = lua_gettop(L);
 	#ifndef SKIP_ERROR_HANDLING
-		if (argc != 1) return luaL_error(L, "wrong number of arguments");
+		if (argc != 1 && argc != 2) return luaL_error(L, "wrong number of arguments");
 	#endif
 	const char *path = luaL_checkstring(L, 1);
-	FS_Archive sdmcArchive = (FS_Archive){0x9, (FS_Path){PATH_EMPTY, 1, (u8*)""}};
-	FSUSER_OpenArchive( &sdmcArchive);
-	FS_Path filePath=fsMakePath(PATH_ASCII, path);
-	FSUSER_DeleteFile(sdmcArchive,filePath);
-	FSUSER_CloseArchive( &sdmcArchive);
-		return 0;
+	if (argc == 2){
+		u32 archive_id = luaL_checkinteger(L, 2);
+		FS_MediaType mtype;
+		FS_ArchiveID atype;
+		if (archive_id < 0x2000){
+			mtype = MEDIATYPE_SD;
+			atype = ARCHIVE_EXTDATA;
+		}else{
+			mtype = MEDIATYPE_NAND;
+			atype = ARCHIVE_SHARED_EXTDATA;
+		}
+		u32 main_extdata_archive_lowpathdata[3] = {mtype, archive_id, 0};
+		FS_Archive archive2 = (FS_Archive){atype, (FS_Path){PATH_BINARY, 0xC, (u8*)main_extdata_archive_lowpathdata}};
+		Result ret = FSUSER_OpenArchive( &archive2);
+		#ifndef SKIP_ERROR_HANDLING
+			if(ret!=0) return luaL_error(L, "cannot access extdata archive");
+		#endif
+		FS_Path filePath=fsMakePath(PATH_ASCII, path);
+		FSUSER_DeleteFile(archive2,filePath);
+		FSUSER_CloseArchive( &archive2);
+	}else{
+		FS_Archive archive2 = (FS_Archive){0x9, (FS_Path){PATH_EMPTY, 1, (u8*)""}};
+		Result ret = FSUSER_OpenArchive( &archive2);
+		FS_Path filePath=fsMakePath(PATH_ASCII, path);
+		FSUSER_DeleteFile(archive2,filePath);
+		FSUSER_CloseArchive( &archive2);
+	}
+	return 0;
 }
 
 static int lua_renfile(lua_State *L) {
@@ -695,6 +708,7 @@ static int lua_listdir(lua_State *L){
 		}else break;
 	}
 	FSDIR_Close(dirHandle);
+	svcCloseHandle(dirHandle);
 	FSUSER_CloseArchive( &sdmcArchive);
 	return 1;
 }
@@ -718,126 +732,6 @@ static int lua_batterycharge(lua_State *L){
 	u8 batteryLevel;
 	PTMU_GetBatteryChargeState(&batteryLevel);
 	lua_pushboolean(L,batteryLevel);
-	return 1;
-}
-
-static int lua_keyboard(lua_State *L){
-	int argc = lua_gettop(L);
-	#ifndef SKIP_ERROR_HANDLING
-		if ((argc != 0) && (argc != 1)) return luaL_error(L, "wrong number of arguments");
-	#endif
-	Console* console = (Console*)malloc(sizeof(Console));
-	console->screen = 0;
-	if (argc == 1) strcpy(console->text, luaL_checkstring(L, 1));
-	else strcpy(console->text,"");
-	int key_pos = 0;
-	bool maiusc = true;
-	char* keychar1[4] = {"1234567890()","QWERTYUIOP[]","ASDFGHJKL+- ","ZXCVBNM,.	 "}; // Last 3 are Maiusc/Del/Enter
-	char* keychar2[4] = {"1234567890!$","qwertyuiop{}","asdfghjkl@=_","zxcvbnm;%	 "}; // Last 3 are Maiusc/Del/Enter
-	char letter[2];
-	for (;;){
-		gspWaitForVBlank();
-		RefreshScreen();
-		ClearScreen(0);
-		ClearScreen(1);
-		FillScreenRect(6,199,6,82,0xFFFFFF,1,0);
-		ConsoleOutput(console);
-		if (maiusc){
-		int i=0;
-		while (i < 4){
-			int j=0;
-			while (j < 12){
-				u32 color;
-				if (key_pos == (j+(i*12))){
-				if (key_pos < 46) FillScreenRect(6+j*15,j*15+16,i*15+6,i*15+19,0xFFFF00,1,0);
-				else if (key_pos == 46) FillScreenRect(26,36,(i+1)*15+6,(i+1)*15+19,0xFFFF00,1,0);
-				else FillScreenRect(76,86,(i+1)*15+6,(i+1)*15+19,0xFFFF00,1,0);
-				color = 0xFF0000;
-				}
-				else color = 0x000000;
-				if ((j < 9) || (i < 3)){
-				strncpy(letter,&keychar1[i][j],1);
-				letter[1] = 0;
-				DrawScreenText(8+(j*15),8+(i*15),letter,color,1,0);
-				}else{
-					if (j == 9) DrawScreenText(8+(j*15),8+(i*15),"DEL",color,1,0);
-					if (j == 10) DrawScreenText(28,8+((i+1)*15),"CAPS",color,1,0);
-					if (j == 11) DrawScreenText(78,8+((i+1)*15),"ENTER",color,1,0);
-				}
-				j++;
-			}
-			i++;
-		}		
-		}else{
-		int i=0;
-		while (i < 4){
-			int j=0;
-			while (j < 12){
-				u32 color;
-				if (key_pos == (j+(i*12))){
-				if (key_pos < 46) FillScreenRect(6+j*15,j*15+16,i*15+6,i*15+19,0xFFFF00,1,0);
-				else if (key_pos == 46) FillScreenRect(26,36,(i+1)*15+6,(i+1)*15+19,0xFFFF00,1,0);
-				else FillScreenRect(76,86,(i+1)*15+6,(i+1)*15+19,0xFFFF00,1,0);
-				color = 0xFF0000;
-				}
-				else color = 0x000000;
-				if ((j < 9) || (i < 3)){
-				strncpy(letter,&keychar2[i][j],1);
-				letter[1] = 0;
-				DrawScreenText(8+(j*15),8+(i*15),letter,color,1,0);
-				}else{
-					if (j == 9) DrawScreenText(8+(j*15),8+(i*15),"DEL",color,1,0);
-					if (j == 10) DrawScreenText(28,8+((i+1)*15),"CAPS",color,1,0);
-					if (j == 11) DrawScreenText(78,8+((i+1)*15),"ENTER",color,1,0);
-				}
-				j++;
-			}
-			i++;
-		}
-		}
-		hidScanInput();
-		irrstScanInput();
-		if ((hidKeysDown() & KEY_A) == KEY_A){
-		if (key_pos == 47) break;
-		else if (key_pos == 46) maiusc = !maiusc;
-		else if ((key_pos == 45) && (strlen(console->text) > 0)){
-			console->text[strlen(console->text)-1] = 0;
-		}else{
-			if (maiusc) strncpy(letter,&keychar1[key_pos/12][key_pos%12],1);
-			else strncpy(letter,&keychar2[key_pos/12][key_pos%12],1);
-			letter[1] = 0;
-			strcat(console->text,letter);
-		}
-		}else if ((hidKeysDown() & KEY_DUP) == KEY_DUP){
-			if ((key_pos < 46) && (key_pos > 11)) key_pos = key_pos - 12;
-			else if (key_pos == 46) key_pos = 37;
-			else if (key_pos < 5) key_pos = 46;
-			else if (key_pos < 12) key_pos = 47;
-			else key_pos = 41;
-		}else if ((hidKeysDown() & KEY_DDOWN) == KEY_DDOWN){
-			if (key_pos < 34) key_pos = key_pos + 12;
-			else if ((key_pos == 35) || (key_pos == 34)) key_pos = 45;
-			else if (key_pos == 45) key_pos = 9;
-			else if (key_pos == 46) key_pos = 1;
-			else if (key_pos == 47) key_pos = 5;
-			else if (key_pos < 41) key_pos = 46;
-			else key_pos = 47;
-		}
-		else if ((hidKeysDown() & KEY_DLEFT) == KEY_DLEFT){
-		key_pos = key_pos - 1;
-		}
-		else if ((hidKeysDown() & KEY_DRIGHT) == KEY_DRIGHT){
-		key_pos = key_pos + 1;
-		}
-		if (key_pos > 47) key_pos = 0;
-		else if (key_pos < 0) key_pos = 47;
-		gfxFlushBuffers();
-		gfxSwapBuffers();
-	}
-	char result[256];
-	strcpy(result,console->text);
-	free(console);
-	lua_pushstring(L, result);
 	return 1;
 }
 
@@ -876,17 +770,17 @@ static int lua_readsmdh(lua_State *L){
 	FS_Read(&tmp, &bytesRead, 8, buffer, 128);
 	int i = 0;
 	while (i < 129){
-	if (buffer[i<<1] == 0) break;
-	else name[i] = buffer[i<<1];
-	i++;
+		if (buffer[i<<1] == 0) break;
+		else name[i] = buffer[i<<1];
+		i++;
 	}
 	name[i] = 0;
 	FS_Read(&tmp, &bytesRead, 392, buffer, 128);
 	i = 0;
 	while (i < 129){
-	if (buffer[i<<1] == 0) break;
-	else author[i] = buffer[i<<1];
-	i++;
+		if (buffer[i<<1] == 0) break;
+		else author[i] = buffer[i<<1];
+		i++;
 	}
 	author[i] = 0;
 	free(buffer);
@@ -895,9 +789,9 @@ static int lua_readsmdh(lua_State *L){
 	FS_Read(&tmp, &bytesRead, 136, buffer, 256);
 	i = 0;
 	while (i < 257){
-	if (buffer[i<<1] == 0) break;
-	else desc[i] = buffer[i<<1];
-	i++;
+		if (buffer[i<<1] == 0) break;
+		else desc[i] = buffer[i<<1];
+		i++;
 	}
 	desc[i] = 0;
 	free(buffer);
@@ -910,8 +804,8 @@ static int lua_readsmdh(lua_State *L){
 	FS_Read(&tmp, &bytesRead, 0x24C0, icon_buffer, 0x1200);
 	FS_Close(&tmp);
 	//convert RGB565 to RGB24
-		int x=0;
-		int y=0;
+	int x=0;
+	int y=0;
 	int tile_size = 16;
 	int tile_number = 1;
 	int extra_x = 0;
@@ -1224,7 +1118,7 @@ static int lua_installCia(lua_State *L){
 			free(cia_buffer);
 		}
 	}
-	AM_FinishCiaInstall(media, &ciaHandle);
+	AM_FinishCiaInstall(ciaHandle);
 	FS_Close(&tmp);
 	amExit();
 	return 0;
@@ -1247,9 +1141,12 @@ static int lua_listCia(lua_State *L){
 		AM_InitializeExternalTitleDatabase(false);
 	}
 	u32 cia_nums;
+	u32 titlesRead;
 	AM_GetTitleCount(MEDIATYPE_SD, &cia_nums);
 	TitleId* TitleIDs = (TitleId*)malloc(cia_nums * sizeof(TitleId));
-	AM_GetTitleIdList(MEDIATYPE_SD, cia_nums, (u64*)TitleIDs);
+	AM_GetTitleList(&titlesRead, MEDIATYPE_SD, cia_nums, (u64*)TitleIDs);
+	AM_TitleEntry* entries = (AM_TitleEntry*)malloc(sizeof(AM_TitleEntry)*cia_nums);
+	AM_GetTitleInfo(MEDIATYPE_SD, cia_nums, (u64*)TitleIDs, entries);
 	u32 i = 1;
 	lua_newtable(L);
 	while (i <= cia_nums){
@@ -1273,6 +1170,12 @@ static int lua_listCia(lua_State *L){
 		lua_pushstring(L, "access_id");
 		lua_pushinteger(L, i);
 		lua_settable(L, -3);
+		lua_pushstring(L, "version");
+		lua_pushinteger(L, entries[i-1].version);
+		lua_settable(L, -3);
+		lua_pushstring(L, "size");
+		lua_pushinteger(L, entries[i-1].size);
+		lua_settable(L, -3);
 		lua_pushstring(L, "category");
 		if(((TitleIDs[i-1].category) & 0x8000) == 0x8000) lua_pushinteger(L, 4);
 		else if (((TitleIDs[i-1].category) & 0x10) == 0x10) lua_pushinteger(L, 1);
@@ -1284,10 +1187,13 @@ static int lua_listCia(lua_State *L){
 		i++;
 	}
 	free(TitleIDs);
+	free(entries);
 	u32 z = 1;
 	AM_GetTitleCount(MEDIATYPE_NAND, &cia_nums);
 	TitleIDs = (TitleId*)malloc(cia_nums * sizeof(TitleId));
-	AM_GetTitleIdList(MEDIATYPE_NAND,cia_nums,(u64*)TitleIDs);
+	AM_GetTitleList(&titlesRead,MEDIATYPE_NAND,cia_nums,(u64*)TitleIDs);
+	entries = (AM_TitleEntry*)malloc(sizeof(AM_TitleEntry)*cia_nums);
+	AM_GetTitleInfo(MEDIATYPE_NAND, cia_nums, (u64*)TitleIDs, entries);
 	while (z <= cia_nums){
 		lua_pushinteger(L, i);
 		lua_newtable(L);
@@ -1309,6 +1215,12 @@ static int lua_listCia(lua_State *L){
 		lua_pushstring(L, "access_id");
 		lua_pushinteger(L, z);
 		lua_settable(L, -3);
+		lua_pushstring(L, "version");
+		lua_pushinteger(L, entries[i-1].version);
+		lua_settable(L, -3);
+		lua_pushstring(L, "size");
+		lua_pushinteger(L, entries[i-1].size);
+		lua_settable(L, -3);
 		lua_pushstring(L, "category");
 		if(((TitleIDs[i-1].category) & 0x8000) == 0x8000) lua_pushinteger(L, 4);
 		else if (((TitleIDs[i-1].category) & 0x10) == 0x10) lua_pushinteger(L, 1);
@@ -1321,6 +1233,7 @@ static int lua_listCia(lua_State *L){
 		z++;
 	}
 	free(TitleIDs);
+	free(entries);
 	amExit();
 	return 1;
 }
@@ -1341,9 +1254,10 @@ static int lua_uninstallCia(lua_State *L){
 		AM_InitializeExternalTitleDatabase(false);
 	}
 	u32 cia_nums;
+	u32 titlesRead;
 	AM_GetTitleCount(media, &cia_nums);
 	TitleId* TitleIDs = (TitleId*)malloc(cia_nums * sizeof(TitleId));
-	AM_GetTitleIdList(media,cia_nums,(u64*)TitleIDs);
+	AM_GetTitleList(&titlesRead,media,cia_nums,(u64*)TitleIDs);
 	u64 id = TitleIDs[delete_id-1].uniqueid | ((u64)TitleIDs[delete_id-1].category << 32) | ((u64)TitleIDs[delete_id-1].platform << 48);
 	AM_DeleteAppTitle(media, id);
 	AM_DeleteTitle(media, id);
@@ -1369,8 +1283,7 @@ static int lua_ciainfo(lua_State *L){
 	#endif
 	AM_TitleEntry info;
 	amInit();
-	AM_GetCiaFileInfo(1, &info, fileHandle);
-	amExit();
+	AM_GetCiaFileInfo(MEDIATYPE_SD, &info, fileHandle);
 	FSFILE_Read(fileHandle, &bytesRead, 0x3A50, title, 16);
 	lua_newtable(L);
 	lua_newtable(L);
@@ -1386,6 +1299,96 @@ static int lua_ciainfo(lua_State *L){
 	lua_settable(L, -3);
 	lua_pushstring(L, "install_size");
 	lua_pushnumber(L, info.size);
+	lua_settable(L, -3);
+	lua_pushstring(L, "icon");
+	char* smdh_data = (char*)malloc(0x36C0);
+	if (R_SUCCEEDED(AM_GetCiaIcon((void*)smdh_data, fileHandle))){
+		char name[64];
+		char desc[128];
+		char author[64];
+		char* buffer = (char*)&smdh_data[8];
+		int i = 0;
+		while (i < 129){
+			if (buffer[i<<1] == 0) break;
+			else name[i] = buffer[i<<1];
+			i++;
+		}
+		name[i] = 0;
+		buffer = (char*)&smdh_data[392];
+		i = 0;
+		while (i < 129){
+			if (buffer[i<<1] == 0) break;
+			else author[i] = buffer[i<<1];
+			i++;
+		}
+		author[i] = 0;
+		buffer = (char*)&smdh_data[136];
+		i = 0;
+		while (i < 257){
+			if (buffer[i<<1] == 0) break;
+			else desc[i] = buffer[i<<1];
+			i++;
+		}
+		desc[i] = 0;
+		buffer = (char*)&smdh_data[0x24C0];
+		u16* icon_buffer = (u16*)buffer;
+		Bitmap* bitmap = (Bitmap*)malloc(sizeof(Bitmap));
+		bitmap->width = 48;
+		bitmap->height = 48;
+		bitmap->pixels = (u8*)malloc(6912);
+		bitmap->bitperpixel = 24;
+		
+		//convert RGB565 to RGB24
+		int x=0;
+		int y=0;
+		int tile_size = 16;
+		int tile_number = 1;
+		int extra_x = 0;
+		int extra_y = 0;
+		i=0;
+		int tile_x[16] = {0,1,0,1,2,3,2,3,0,1,0,1,2,3,2,3};
+		int tile_y[16] = {0,0,1,1,0,0,1,1,2,2,3,3,2,2,3,3};
+		while (tile_number < 37){
+			while (i < (tile_size)){
+				putPixel565(bitmap->pixels, tile_x[i-((tile_number-1)<<6)] + extra_x, tile_y[i-((tile_number-1)<<6)] + extra_y, icon_buffer[i]);
+				putPixel565(bitmap->pixels, 4+tile_x[i-((tile_number-1)<<6)] + extra_x, tile_y[i-((tile_number-1)<<6)] + extra_y, icon_buffer[i+16]);
+				putPixel565(bitmap->pixels, tile_x[i-((tile_number-1)<<6)] + extra_x, 4+tile_y[i-((tile_number-1)<<6)] + extra_y, icon_buffer[i+32]);
+				putPixel565(bitmap->pixels, 4+tile_x[i-((tile_number-1)<<6)] + extra_x, 4+tile_y[i-((tile_number-1)<<6)] + extra_y, icon_buffer[i+48]);
+				i++;
+			}
+			if (tile_number % 6 == 0){
+				extra_x = 0;
+				extra_y = extra_y + 8;
+			}else extra_x = extra_x + 8;
+			tile_number++;
+			tile_size = tile_size + 64;
+			i = i + 48;
+		}
+		bitmap->magic = 0x4C494D47;
+		lua_pushinteger(L, (u32)bitmap);
+		lua_settable(L, -3);
+		lua_pushstring(L, "name");
+		lua_pushstring(L, name);
+		lua_settable(L, -3);
+		lua_pushstring(L, "desc");
+		lua_pushstring(L, desc);
+		lua_settable(L, -3);
+		lua_pushstring(L, "author");
+		lua_pushstring(L, author);
+	}else{
+		lua_pushnil(L);
+		lua_settable(L, -3);
+		lua_pushstring(L, "name");
+		lua_pushnil(L);
+		lua_settable(L, -3);
+		lua_pushstring(L, "desc");
+		lua_pushnil(L);
+		lua_settable(L, -3);
+		lua_pushstring(L, "author");
+		lua_pushnil(L);
+	}
+	amExit();
+	free(smdh_data);
 	lua_settable(L, -3);
 	FSFILE_Close(fileHandle);
 	svcCloseHandle(fileHandle);
@@ -1954,17 +1957,14 @@ static const luaL_Reg System_functions[] = {
 	{"checkBuild",			lua_checkbuild},
 	{"renameDirectory",		lua_rendir},
 	{"createDirectory",		lua_createdir},
-	{"createExtdataDir",	lua_createextdatadir},
 	{"deleteDirectory",		lua_deldir},
 	{"renameFile",			lua_renfile},
 	{"deleteFile",			lua_delfile},
-	{"deleteExtdataFile",	lua_deleteextfile},
 	{"doesFileExist",		lua_checkexist},
 	{"listDirectory",		lua_listdir},
 	{"getBatteryLife",		lua_batterylv},
 	{"isBatteryCharging",	lua_batterycharge},
 	{"getLanguage",			lua_getLang},
-	{"startKeyboard",		lua_keyboard},
 	{"launch3DSX",			lua_launch},
 	{"launchCIA",			lua_launchCia},
 	{"launchPayload",		lua_brahmaloader},
@@ -1995,7 +1995,7 @@ static const luaL_Reg System_functions[] = {
 	{"getCpuSpeed",			lua_getcpu},
 	{"extractFromZIP",		lua_getfilefromzip},
 	{"checkSDMC",			lua_detectsd},
-	{"duplicateEntity",		lua_dup},
+	{"fork",				lua_dup},
 // I/O Module and Dofile Patch
 	{"openFile",			lua_openfile},
 	{"getFileSize",			lua_getsize},

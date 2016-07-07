@@ -65,6 +65,8 @@ const char *runScript(const char* script, bool isStringBuffer)
 	luaCamera_init(L);
 	luaRender_init(L);
 	luaMic_init(L);
+	luaCore_init(L);
+	luaKeyboard_init(L);
 	
 	int s = 0;
 	const char *errMsg = NULL;

@@ -36,6 +36,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <3ds.h>
+#include "lua/lua.hpp"
 #include "utils.h"
 
 void FS_GetSize(fileStream* Handle, u64* size){
@@ -113,6 +114,13 @@ u32 ARGB2RGBA(u32 color){
 	return a | (b << 8) | (g << 16) | (r << 24);
 }
 
+void RBswap(u32* color){
+	u8* ptr = (u8*)color;
+	u8 swap = ptr[0];
+	ptr[0] = ptr[2];
+	ptr[2] = swap;
+}
+
 // Grabbed from Citra Emulator (citra/src/video_core/utils.h)
 u32 morton_interleave(u32 x, u32 y)
 {
@@ -129,4 +137,9 @@ u32 get_morton_offset(u32 x, u32 y, u32 bytes_per_pixel)
     u32 i = morton_interleave(x, y);
     unsigned int offset = (x & ~7) << 3;
     return (i + offset) * bytes_per_pixel;
+}
+
+void* luaL_checkbuffer(lua_State *L, int argv){
+	if (lua_type(L, argv) == LUA_TNUMBER) (void*)luaL_checkinteger(L, argv);
+	else return (void*)luaL_checkstring(L, argv);
 }

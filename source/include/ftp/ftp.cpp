@@ -23,6 +23,7 @@ int dataPort=5001;
 char currentPath[4096];
 u32 currentIP;
 u32* ftp_mem;
+static int sock_buffersize = 32768;
 
 int listenfd;
 
@@ -49,8 +50,19 @@ void ftp_init()
 	listenfd=-1;
 }
 
+int cmd_sock = -1;
+
 void ftp_exit()
 {
+	if (listenfd >= 0){
+		closesocket(listenfd);
+		listenfd = -1;
+	}
+	if (cmd_sock >= 0){
+		ftp_sendResponse(cmd_sock, 200, "bye bye");
+		closesocket(cmd_sock);
+		cmd_sock = -1;
+	}
 	socExit();
 	free(ftp_mem);
 }
@@ -65,24 +77,30 @@ int ftp_openCommandChannel()
 		memset(&serv_addr, '0', sizeof(serv_addr));
 
 		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+		serv_addr.sin_addr.s_addr = gethostid();
 		serv_addr.sin_port = htons(commandPort); 
 
 		bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); 
+		int yes = 1;
+		setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+		setsockopt(listenfd, SOL_SOCKET, SO_RCVBUF, &sock_buffersize, sizeof(sock_buffersize));
+		int flags = fcntl(listenfd, F_GETFL, 0);
 		fcntl(listenfd, F_SETFL, O_NONBLOCK);
 
 		listen(listenfd, 10); 
 	}
 	
-	int ret=accept(listenfd, (struct sockaddr*)NULL, NULL);
-	if(ret>=0)
+	if (cmd_sock < 0) cmd_sock=accept(listenfd, (struct sockaddr*)NULL, NULL);
+	if(cmd_sock>=0)
 	{
-		closesocket(listenfd);
-		listenfd=-1;
-		fcntl(ret, F_SETFL, O_NONBLOCK);
+		//closesocket(listenfd);
+		//listenfd=-1;
+		setsockopt(cmd_sock, SOL_SOCKET, SO_RCVBUF, &sock_buffersize, sizeof(sock_buffersize));
+		int flags = fcntl(cmd_sock, F_GETFL, 0);	
+		fcntl(cmd_sock, F_SETFL, flags | O_NONBLOCK);
 	}
 
-	return ret;
+	return cmd_sock;
 }
 
 int ftp_openDataChannel()
@@ -94,7 +112,7 @@ int ftp_openDataChannel()
 	memset(&serv_addr, '0', sizeof(serv_addr));
 
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serv_addr.sin_addr.s_addr = INADDR_ANY;
 	serv_addr.sin_port = htons(dataPort); 
 
 	bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); 
@@ -102,6 +120,7 @@ int ftp_openDataChannel()
 	listen(listenfd, 10); 
 	
 	int ret=accept(listenfd, (struct sockaddr*)NULL, NULL);
+	setsockopt(ret, SOL_SOCKET, SO_RCVBUF, &sock_buffersize, sizeof(sock_buffersize));
 	closesocket(listenfd);
 
 	return ret;
@@ -141,11 +160,26 @@ int ftp_processCommand(int s, char* data)
 
 int ftp_frame(int s)
 {
+	int cmd_sock_2=accept(listenfd, (struct sockaddr*)NULL, NULL);
+	if (cmd_sock_2 >= 0){ // TODO: A proper implementation with poll could be much more better
+		sprint(shared_ftp,"received connection ! %dgreeting...",cmd_sock_2);
+		ftp_sendResponse(cmd_sock_2, 200, "hello");
+		char buffer[512];
+		memset(buffer, 0, 512);
+		int ret=recv(cmd_sock_2,buffer,512,0);
+		ftp_processCommand(cmd_sock_2,buffer);
+		closesocket(cmd_sock);
+		cmd_sock = cmd_sock_2;
+		s = cmd_sock;
+	}
 	char buffer[512];
 	memset(buffer, 0, 512);
 	int ret=recv(s,buffer,512,0);
-	if(!ret)return 1; //client has disconnected
-	else return ftp_processCommand(s,buffer);
+	if(!ret){
+		closesocket(cmd_sock);
+		cmd_sock = -1;
+		return 1; //client has disconnected
+	}else return ftp_processCommand(s,buffer);
 }
 
 int ftp_getConnection()
