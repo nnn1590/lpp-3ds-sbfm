@@ -20,7 +20,30 @@ function SortDirectory(dir)
 	return_table = TableConcat(folders_table,files_table)
 	return return_table
 end
+function DeleteDir(dir)
+	todelfiles = System.listDirectory(dir)
+	for z, todelfile in pairs(todelfiles) do
+		if (todelfile.directory) then
+			DeleteDir(dir.."/"..todelfile.name)
+		else
+			System.deleteFile(dir.."/"..todelfile.name)
+		end
+	end
+	System.deleteDirectory(dir)
+end
 --copied from ORGANIZ3D--
+
+function DeleteExtDir(dir,arch)
+	todelfiles = System.listExtdataDir(dir,arch)
+	for z, todelfile in pairs(todelfiles) do
+		if (todelfile.directory) then
+			DeleteExtDir(dir.."/"..todelfile.name,arch)
+		else
+			System.deleteFile(dir.."/"..todelfile.name,arch)
+		end
+	end
+	System.deleteDirectory(dir,arch)
+end
 
 --adds something to the bottom screen--
 function logg(str,flag)
@@ -74,7 +97,7 @@ function keyboardinput(prompt,text,newlines)
 		oldpad=pad
 		syscontrols()
 		if Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A) then enter=true end --A=Enter
-		if Controls.check(pad,KEY_Y) and not Controls.check(oldpad,KEY_Y) then
+		if Controls.check(pad,KEY_Y) and not Controls.check(oldpad,KEY_Y) then --Y=Backspace
 			if newlines then
 				if out[outindex]=="" then
 					if outindex>1 then outindex=outindex-1 end
@@ -85,7 +108,13 @@ function keyboardinput(prompt,text,newlines)
 			else
 				text=string.sub(text,1,string.len(text)-1)
 			end
-		end --Y=Backspace - This is for SmileBASIC users after all
+		end
+		if Controls.check(pad,KEY_L) or Controls.check(pad,KEY_R) then --L or R=Shift
+			shifton=2
+		end
+		if (not Controls.check(pad,KEY_L) and Controls.check(oldpad,KEY_L) and not Controls.check(pad,KEY_R)) or (not Controls.check(pad,KEY_R) and Controls.check(oldpad,KEY_R) and not Controls.check(pad,KEY_L)) then --when L and R are released then shift returns to off
+			shifton=1
+		end
 		tx,ty = Controls.readTouch()
 		if tx==0 and ty==0 then
 			keypressed = ""
@@ -99,9 +128,11 @@ function keyboardinput(prompt,text,newlines)
 			if keypressed~=pastkey and pastkey=="" then
 				if string.len(keypressed)==1 then
 					if newlines then out[outindex]=out[outindex]..keypressed else text=text..keypressed end
-					if shifton==2 then shifton=1 end
+					if not Controls.check(pad,KEY_L) and not Controls.check(pad,KEY_R) and shifton==2 then shifton=1 end
 				else
-					if keypressed=="Sh" then shifton=3-shifton end --toggle shift
+					if keypressed=="Sh" then
+						if not Controls.check(pad,KEY_L) and not Controls.check(pad,KEY_R) then shifton=3-shifton end
+					end --toggle shift
 					if keypressed=="Space" then
 						if newlines then out[outindex]=out[outindex].." " else text=text.." " end --do the space thing
 					end
@@ -303,15 +334,21 @@ function copy()
 	logg("B: Cancel",0)
 	logg("Y: Copy full file, including header",0)
 	logg(" and footer",0)
-	logg("X: Copy only the code of a file. Only",0)
-	logg(" use this when you have a file",0)
-	logg(" containing only the code for a",0)
-	logg(" program",0)
-	logg("A: Copy only the contents of a DAT.",0)
-	logg(" Only use this when all of your",0)
-	logg(" files are in the DAT format, but",0)
-	logg(" without even a secondary DAT",0)
-	logg(" header.",1)
+	logg("X: Copy only the code of a file.",0)
+	if selected==1 then
+		logg(" Only use this when you have a file",0)
+		logg(" containing only the code for a",0)
+		logg(" program",0)
+	end
+	if selected==1 then
+		logg("A: Copy only the contents of a DAT.",0)
+		logg(" Only use this when all of your",0)
+		logg(" files are in the DAT format, but",0)
+		logg(" without even a secondary DAT",0)
+		logg(" header.",1)
+	else
+		logg("A: Copy only the contents of a DAT.",1)
+	end
 	repeat
 		oldpad=pad
 		pad = Controls.read()
@@ -323,7 +360,7 @@ function copy()
 			System.exit()
 		end
 		Screen.waitVblankStart()
-	until (((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))) or ((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))))
+	until ((Controls.check(pad,KEY_B) and not Controls.check(oldpad,KEY_B)) or (Controls.check(pad,KEY_Y) and not Controls.check(oldpad,KEY_Y)) or (Controls.check(pad,KEY_X) and not Controls.check(oldpad,KEY_X)) or (Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A)))
 	clearlogg()
 	counter=0
 	if (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
@@ -625,6 +662,7 @@ function SDtoSBsand(SDdir,SBdir)
 	logg("Done.",1)
 end
 
+
 --DAT copy functions--
 function SBtoSDdat(SBdir,SDdir)
 	logg("Source: "..SBdir,0)
@@ -876,307 +914,6 @@ function logheader()
 	end
 end
 
---separates list of programs returned by list.php into an array of lines
-function parsetext(stri)
-	contents = {}
-	i = 0
-	linetext = ""
-	while i<=string.len(stri) do --I don't like lua's for loops, they're disgusting
-		c = string.sub(stri,i,i)
-		if string.byte(c)==13 then
-			table.insert(contents,linetext)
-			linetext=""
-			i=i+1
-		else
-			linetext = linetext..c
-			if i==string.len(stri) then
-				table.insert(contents,linetext)
-				linetext=""
-			end
-		end
-		i=i+1
-	end
-	return contents
-end
-
-function showshop(content)
-	--SmileBASIC files--
-	Screen.fillRect(0,174,(index-scroll)*15,(index-scroll)*15+10,Color.new(40+(1-selected)*40,40+(1-selected)*40,40+(1-selected)*40),TOP_SCREEN)
-	for l, file in pairs(files) do
-		if ((l-scroll)*15<240) and ((l-scroll)*15>-1) then
-			if file.directory then col=white else col=green end
-			Screen.debugPrint(0,(l-scroll)*15,file.name,col,TOP_SCREEN)
-		end
-	end
-	--Shop files--
-	Screen.fillRect(175,399,(shopindex-shopscroll-1)*15,(shopindex-shopscroll-1)*15+10,Color.new(40+(selected)*40,40+(selected)*40,40+(selected)*40),TOP_SCREEN)
-	ind=0
-	for l, file in pairs(content) do
-		if string.sub(file,1,1)~=" " then
-			if ((ind-shopscroll)*15<240) and ((ind-shopscroll)*15>-1) then
-				if content[l+1]==" >File" then col=green else col=white end
-				Screen.debugPrint(175,(ind-shopscroll)*15,file,col,TOP_SCREEN)
-			end
-			ind=ind+1
-		end
-	end
-
-	--Bottom screen log--
-	for l, logg in pairs(logger) do
-		if (l>#logger-16) then
-			Screen.debugPrint(0,(15-(#logger-l))*15,logg,white,BOTTOM_SCREEN)
-		end
-	end
-	oldpad=pad
-	
-	Screen.flip()
-	Screen.waitVblankStart()
-	Screen.refresh()
-end
-
-function shop(content)
-	oldpad=pad
-	selected=1
-	inshop=1
-	shopscroll=0
-	shopindex=1
-	actualshopindex=1
-	e=0
-	counter=600
-	clearlogg()
-	
-	maxind=0
-	for l,file in pairs(content) do
-		if string.sub(file,1,1)~=" " then maxind=maxind+1 end
-	end
-	while e==0 do
-		Screen.clear(TOP_SCREEN)
-		Screen.clear(BOTTOM_SCREEN)
-		
-		if counter==600 then
-			clearlogg()
-			logg("Controls:",0)
-			logg("Circle pad/D-pad: Move cursor",0)
-			if selected==1 then
-				logg("A: View project description",0)
-				logg("Y: Download a project",0)
-				logg("B: Search",0)
-			else
-				logg("A: Navigate into a folder/list header",0)
-				logg("B: Navigate out of a folder",0)
-			end
-			logg("X: Quit the shop",0)
-			if (System.checkBuild()==1) then
-				logg("Start: Exit",0)
-				logg("Select: Launch SmileBASIC",0)
-			else
-				logg("L+R+B+Down: Exit",0)
-			end
-		end
-		if counter<=600 then counter=counter+1 end
-		syscontrols()
-		
-		if selected==0 then
-			--move up and down--
-			if (Controls.check(pad,KEY_DUP)) and not (Controls.check(oldpad,KEY_DUP)) then
-				if (index>1) then
-					index = index - 1
-				end
-			elseif (Controls.check(pad,KEY_DDOWN)) and not (Controls.check(oldpad,KEY_DDOWN)) then
-				if (index<#files) then
-					index = index + 1
-				end
-			end
-			if (Controls.check(pad,KEY_DLEFT)) and not (Controls.check(oldpad,KEY_DLEFT)) then
-				index = index - 15
-				if (index<1) then
-					index = 1
-				end
-			elseif (Controls.check(pad,KEY_DRIGHT)) and not (Controls.check(oldpad,KEY_DRIGHT)) then
-				index = index + 15
-				if (index>#files) then
-					index = #files
-				end
-			end
-			--go inside a folder/log header--
-			if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
-				if (isdir(files,index)) then
-					files = SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
-					indexbkup=index
-					index=1
-				else
-					logheader()
-				end
-			end
-			--exit a folder--
-			if (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
-				if (files ~= folders) then
-					files = folders
-					index=indexbkup
-				end
-			end
-			--switch to shop--
-			if (Controls.check(pad,KEY_R)) and not (Controls.check(oldpad,KEY_R)) then
-				selected = 1
-				counter = 600
-			end
-			while ((index-scroll)*15+15>235) and (scroll<#files-15) do
-				scroll = scroll+1
-			end
-			while ((index-scroll)*15<5) and (scroll>1) do
-				scroll = scroll-1
-			end
-		else
-			if (Controls.check(pad,KEY_DUP)) and not (Controls.check(oldpad,KEY_DUP)) then
-				if (shopindex>1) then
-					shopindex = shopindex - 1
-					repeat
-						actualshopindex=actualshopindex-1
-					until string.sub(content[actualshopindex],1,1)~=" "
-				end
-			elseif (Controls.check(pad,KEY_DDOWN)) and not (Controls.check(oldpad,KEY_DDOWN)) then
-				if (shopindex<maxind) then
-					shopindex = shopindex + 1
-					repeat
-						actualshopindex=actualshopindex+1
-					until string.sub(content[actualshopindex],1,1)~=" "
-				end
-			end
-			if (Controls.check(pad,KEY_DLEFT)) and not (Controls.check(oldpad,KEY_DLEFT)) then
-				l=0
-				while l<15 do
-					if (shopindex<maxind) then
-						shopindex = shopindex - 1
-						repeat
-							actualshopindex=actualshopindex-1
-						until string.sub(content[actualshopindex],1,1)~=" "
-					end
-					l=l+1
-				end
-			elseif (Controls.check(pad,KEY_DRIGHT)) and not (Controls.check(oldpad,KEY_DRIGHT)) then
-				l=0
-				while l<15 do
-					if (shopindex<maxind) then
-						shopindex = shopindex + 1
-						repeat
-							actualshopindex=actualshopindex+1
-						until string.sub(content[actualshopindex],1,1)~=" "
-					end
-					l=l+1
-				end
-			end
-			while ((shopindex-shopscroll)*15+15>235) and (shopscroll<maxind-15) do
-				scroll = scroll+1
-			end
-			while ((shopindex-shopscroll)*15<5) and (shopscroll>1) do
-				scroll = scroll-1
-			end
-			if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
-				l=actualshopindex+2--first comment line is used for folder/file
-				last=0
-				if string.sub(content[l],1,2)==" >" then --if comment exists
-					clearlogg()
-					counter=0
-				else last=1 end
-				while last==0 do
-					if string.sub(content[l+1],1,2)~=" >" then --is it the last comment?
-						last=1
-					end
-					logg(string.sub(content[l],3,#content[l]),last)
-					if l==#content then break end
-					l=l+1
-				end
-			end
-			if (Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y)) then
-				projname=content[actualshopindex]
-				System.createDirectory(temploc)
-				System.createDirectory(temploc..projname)
-				System.createDirectory("/"..projname,archive)
-				l=actualshopindex+1
-				isfile=(content[l]==" >File")
-				while string.sub(content[l],1,1)==" " do
-					if string.sub(content[l],2,2)~=">" then
-						filename=string.sub(content[l],2,#content[l])
-						logg("Downloading "..temploc..projname.."/"..filename,1)
-						Network.downloadFile(shoploc..projname.."/"..filename,temploc..projname.."/"..filename)
-						if isfile then
-							if files==folders then
-								SBdir="/###/"..filename
-							else
-								SBdir="/"..folders[indexbkup].."/"..filename
-							end
-						else
-							SBdir="/"..projname.."/"..filename
-						end
-						SDtoSB(temploc..projname.."/"..filename,SBdir)
-						logg("Deleting "..temploc..projname.."/"..filename,1)
-						System.deleteFile(temploc..projname.."/"..filename)
-					end
-					if l==#content then break end
-					l=l+1
-				end
-				logg("Deleting temporary files",1)
-				System.deleteDirectory(temploc..projname)
-				System.deleteDirectory(temploc)
-				counter=0
-				folders = SortDirectory(System.listExtdataDir("/",archive))
-				files = folders
-			end
-			if (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
-				logg("Search options:",0)
-				logg("A: By project name",0)
-				logg("X: By author",0)
-				logg("Y: List all",0)
-				logg("B: Cancel",1)
-				repeat
-					oldpad=pad
-					pad = Controls.read()
-					if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-						System.showHomeMenu()
-					end
-					-- Exit if HomeMenu calls APP_EXITING
-					if System.checkStatus() == APP_EXITING then
-						System.exit()
-					end
-					Screen.waitVblankStart()
-				until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))))
-				if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
-					projname=keyboardinput("Project name:","",false)
-					projname=urlify(projname)
-					results=Network.requestString(shoploc.."index.php?action=search&type=project&project="..projname)
-					content=parsetext(results)
-					storelist=content
-				elseif (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
-					author=keyboardinput("Author name:","",false)
-					author=urlify(author)
-					results=Network.requestString(shoploc.."index.php?action=search&type=author&author="..author)
-					content=parsetext(results)
-					storelist=content
-				elseif (Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y)) then
-					results=Network.requestString(shoploc.."index.php?action=list")
-					content=parsetext(results)
-					storelist=content
-				end
-				oldpad=pad
-				counter=540
-			end
-			--switch to SB--
-			if (Controls.check(pad,KEY_L)) and not (Controls.check(oldpad,KEY_L)) then
-				selected = 0
-				counter = 600
-			end
-		end
-		if (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
-			e=1
-		end
-		showshop(content)
-	end
-	inshop=0
-	folders = SortDirectory(System.listExtdataDir("/",archive))
-	files = folders
-	counter = 60
-end
-
 --variable declaration--
 --messy--
 white = Color.new(255,255,255)
@@ -1220,6 +957,8 @@ keyboard = {{ --array containing keyboard data
 }}
 keyrowdata = {4,4,12,20,100} --offsets of the keyboard rows
 
+Screen.disable3D()
+
 Screen.waitVblankStart()
 Screen.refresh()
 
@@ -1230,13 +969,14 @@ while true do
 	
 	if counter==60 then
 		clearlogg()
+		logg("SmileBASIC File Manager Version 1.5",0)
 		logg("Controls:",0)
 		logg("Circle pad/D-pad: Move cursor",0)
 		logg("L/R: Switch between file browsers",0)
 		logg("A: Navigate into a folder/list header",0)
 		logg("B: Navigate out of a folder",0)
 		logg("Y: Copy a file or folder",0)
-		logg("X: Go to the online shop",0)
+		logg("X: Create/delete",0)
 		if (System.checkBuild()==1) then
 			logg("Start: Exit",0)
 			logg("Select: Launch SmileBASIC",0)
@@ -1267,6 +1007,7 @@ while true do
 			index = index + 15
 			if (index>#files) then
 				index = #files
+				if (index==0) then index=1 end
 			end
 		end
 		--switch to SD--
@@ -1318,6 +1059,7 @@ while true do
 			sdindex = sdindex + 15
 			if (sdindex>#sdfiles) then
 				sdindex = #sdfiles
+				if (sdindex==0) then sdindex=1 end
 			end
 		end
 		--switch to SB--
@@ -1360,17 +1102,92 @@ while true do
 		copy()
 	end
 	if (Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X)) then
-		if Network.isWifiEnabled() then--can't access online store without interwebs access
-			shoploc=keyboardinput("URL of database:",shoploc,false)--get shop database location
-			if string.sub(shoploc,string.len(shoploc),string.len(shoploc))~="/" then --make sure url ends with / to avoid errors
-				shoploc=shoploc.."/"
+		clearlogg()
+		counter=0
+		logg("A: Create folder",0)
+		logg("X: Delete folder/file",0)
+		logg("B: Cancel",1)
+		repeat
+			oldpad=pad
+			pad = Controls.read()
+			if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
+				System.showHomeMenu()
 			end
-			list=Network.requestString(shoploc.."index.php?action=list")
-			storelist = parsetext(list)
-			shop(storelist) --go to the shop subroutine
-		else
-			logg("Cannot connect to the internet!",1)
-			counter=0
+			-- Exit if HomeMenu calls APP_EXITING
+			if System.checkStatus() == APP_EXITING then
+				System.exit()
+			end
+			Screen.waitVblankStart()
+		until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))))
+		if Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A) then
+			foldername=keyboardinput("Folder name:","",false);
+			if selected==1 then
+				System.createDirectory(System.currentDirectory()..foldername)
+			else
+				System.createDirectory("/"..foldername,archive)
+			end
+			sdfiles = SortDirectory(System.listDirectory(System.currentDirectory()))
+			if (isdir(files,index)) then
+				files = SortDirectory(System.listExtdataDir("/",archive))
+			else
+				files = SortDirectory(System.listExtdataDir("/"..folders[indexbkup].name.."/",archive))
+			end
+		elseif Controls.check(pad,KEY_X) and not Controls.check(oldpad,KEY_X) then
+			if not (selected==0 and #files==0) and not (selected==1 and #sdfiles==0) then logg("Are you sure you want to delete",0) end
+			filename=""
+			directory=false
+			if (selected==0) then
+				if (isdir(files,index)) then
+					filename="/"..files[index].name
+					directory=true
+				elseif not (#files==0) then
+					filename="/"..folders[indexbkup].name.."/"..files[index].name
+					directory=false
+				else
+					logg("You can't delete anything from",0)
+					logg("an empty folder.",1)
+				end
+			elseif (selected==1) then
+				if not (#sdfiles==0) then
+					filename=System.currentDirectory()..sdfiles[sdindex].name
+					directory=isdir(sdfiles,sdindex)
+				else
+					logg("You can't delete anything from",0)
+					logg("an empty folder.",1)
+				end
+			end
+			if filename~="" then
+				logg(filename,0)
+				logg("A: Yes",0)
+				logg("B: No",1)
+				okay=confirm()
+				if confirm then
+					if selected==0 then
+						if directory then DeleteExtDir(filename,archive) else System.deleteFile(filename,archive) end
+					else
+						if directory then DeleteDir(filename) else System.deleteFile(filename) end
+					end
+				end
+				sdfiles = SortDirectory(System.listDirectory(System.currentDirectory()))
+				if (isdir(files,index)) then
+					files = SortDirectory(System.listExtdataDir("/",archive))
+				else
+					files = SortDirectory(System.listExtdataDir("/"..folders[indexbkup].name.."/",archive))
+				end
+				--adjust scroll--
+				while ((sdindex-sdscroll)*15+15>235) and (sdscroll<#sdfiles-15) do
+					sdscroll = sdscroll+1
+				end
+				while ((sdindex-sdscroll)*15<5) and (sdscroll>1) do
+					sdscroll = sdscroll-1
+				end
+				while ((index-scroll)*15+15>235) and (scroll<#files-15) do
+					scroll = scroll+1
+				end
+				while ((index-scroll)*15<5) and (scroll>1) do
+					scroll = scroll-1
+				end
+			end
 		end
 	end
 	
