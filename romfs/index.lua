@@ -31,8 +31,6 @@ function DeleteDir(dir)
 	end
 	System.deleteDirectory(dir)
 end
---copied from ORGANIZ3D--
-
 function DeleteExtDir(dir,arch)
 	todelfiles = System.listExtdataDir(dir,arch)
 	for z, todelfile in pairs(todelfiles) do
@@ -44,14 +42,16 @@ function DeleteExtDir(dir,arch)
 	end
 	System.deleteDirectory(dir,arch)
 end
+--copied from ORGANIZ3D--
 
---adds something to the bottom screen--
+
+--adds something to the top screen log--
 function logg(str,flag)
 	table.insert(logger,str)
 	if flag~=0 then advanceframe() end
 end
 function advanceframe()
-	if inshop==1 then showshop(storelist) else updatescreen() end
+	updatescreen()
 	Screen.clear(TOP_SCREEN)
 	Screen.clear(BOTTOM_SCREEN)
 end
@@ -59,12 +59,20 @@ function clearlogg()
 	for k,v in pairs(logger) do logger[k]=nil end
 end
 function syscontrols()
+	oldpad = pad
 	pad = Controls.read()
 	px,py = Controls.readCirclePad()
 	if px<-100 and not Controls.check(pad,KEY_DLEFT) then pad = pad + KEY_DLEFT end
 	if px>100 and not Controls.check(pad,KEY_DRIGHT) then pad = pad + KEY_DRIGHT end
 	if py<-100 and not Controls.check(pad,KEY_DDOWN) then pad = pad + KEY_DDOWN end
 	if py>100 and not Controls.check(pad,KEY_DUP) then pad = pad + KEY_DUP end
+	for l,i in pairs({0,1,4,5,6,7,8,9,10,11}) do
+		if times[i]==nil then times[i]=0 end
+		if Controls.check(pad,2^i) and Controls.check(oldpad,2^i) then
+			times[i]=times[i]+1
+			if times[i]-14>=0 and times[i]%2==0 then oldpad=oldpad-2^i end --brepeat--
+		else times[i]=0 end
+	end
 	if Controls.check(pad,KEY_HOME) or Controls.check(pad,KEY_POWER) then
 		System.showHomeMenu()
 	end
@@ -80,7 +88,17 @@ function syscontrols()
 	end
 end
 
---better keyboard than lpp3ds's button-controlled one
+--uses a png of the smilebasic font, as drawing with the Font module is laggy
+function print(x,y,text,color,screen)
+	for i = 1, #text do
+		c = string.byte(text,i)
+		Graphics.drawPartialImage(x,y,(c%64)*8,math.floor(c/64)*8,8,8,font,color)
+		x=x+8
+	end
+	
+end
+
+--better keyboard
 function keyboardinput(prompt,text,newlines)
 	enter = false
 	shifton = 1
@@ -160,6 +178,7 @@ function keyboardinput(prompt,text,newlines)
 			end
 			pastkey = keypressed
 		end
+		Graphics.initBlend(BOTTOM_SCREEN)
 		--drawing the keyboard
 		y=1
 		while y<=5 do
@@ -167,20 +186,22 @@ function keyboardinput(prompt,text,newlines)
 			while x<=#keyboard[shifton][y] do
 				if keypressed==keyboard[shifton][y][x] then col=green else col=white end
 				if string.len(keyboard[shifton][y][x])>1 then ofs=0 else ofs=4 end
-				Screen.debugPrint(ofs+keyrowdata[y]+24*(x-1),16+48*(y-1),keyboard[shifton][y][x],col,BOTTOM_SCREEN)
+				print(ofs+keyrowdata[y]+24*(x-1),16+48*(y-1),keyboard[shifton][y][x],col,BOTTOM_SCREEN)
 				x=x+1
 			end
 			y=y+1
 		end
-		Screen.debugPrint(0,92,prompt,white,TOP_SCREEN)
+		Graphics.termBlend()
+		Graphics.initBlend(TOP_SCREEN)
+		print(0,92,prompt,white,TOP_SCREEN)
 		if newlines then
 			for i,t in pairs(out) do
-				Screen.debugPrint(16,112+15*(i-1),t,white,TOP_SCREEN)
+				print(16,112+15*(i-1),t,white,TOP_SCREEN)
 			end
 		else
-			Screen.debugPrint(16,112,text,white,TOP_SCREEN)
+			print(16,112,text,white,TOP_SCREEN)
 		end
-		
+		Graphics.termBlend()
 		Screen.flip()
 		Screen.waitVblankStart()
 		Screen.refresh()
@@ -204,7 +225,6 @@ function numpadinput(prompt,text)
 		Screen.clear(TOP_SCREEN)
 		Screen.clear(BOTTOM_SCREEN)
 		--controls
-		oldpad=pad
 		syscontrols()
 		if Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A) then enter=true end --A=Enter
 		if Controls.check(pad,KEY_Y) and not Controls.check(oldpad,KEY_Y) then text=string.sub(text,1,string.len(text)-1) end --Y=Backspace - This is for SmileBASIC users after all
@@ -229,6 +249,7 @@ function numpadinput(prompt,text)
 			end
 			pastkey = numpressed
 		end
+		Graphics.initBlend(BOTTOM_SCREEN)
 		--drawing the keyboard
 		y=0
 		while y<4 do
@@ -242,14 +263,16 @@ function numpadinput(prompt,text)
 					end
 				end
 				if numpressed==key then col=green else col=white end
-				Screen.debugPrint((320/4)*x+320/8,(240/4)*y+240/8,key,col,BOTTOM_SCREEN)
+				print((320/4)*x+320/8,(240/4)*y+240/8,key,col,BOTTOM_SCREEN)
 				x=x+1
 			end
 			y=y+1
 		end
-		Screen.debugPrint(0,92,prompt,white,TOP_SCREEN)
-		Screen.debugPrint(16,112,text,white,TOP_SCREEN)
-		
+		Graphics.termBlend(BOTTOM_SCREEN)
+		Graphics.initBlend(TOP_SCREEN)
+		print(0,92,prompt,white,TOP_SCREEN)
+		print(16,112,text,white,TOP_SCREEN)
+		Graphics.termBlend()
 		Screen.flip()
 		Screen.waitVblankStart()
 		Screen.refresh()
@@ -260,18 +283,7 @@ end
 --waits for the user to confirm
 function confirm()
 	okay=false --default false
-	repeat
-		oldpad=pad
-		pad = Controls.read()
-		if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-			System.showHomeMenu()
-		end
-		-- Exit if HomeMenu calls APP_EXITING
-		if System.checkStatus() == APP_EXITING then
-			System.exit()
-		end
-		Screen.waitVblankStart()
-	until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))))
+	repeat syscontrols() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))))
 	if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
 		okay=true
 	elseif (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
@@ -283,35 +295,34 @@ end
 
 --prints everything--
 function updatescreen()
+	Graphics.initBlend(BOTTOM_SCREEN)
 	--SmileBASIC files--
-	Screen.fillRect(0,174,(index-scroll)*15,(index-scroll)*15+10,Color.new(40+(1-selected)*40,40+(1-selected)*40,40+(1-selected)*40),TOP_SCREEN)
+	Graphics.fillRect(0,128,math.floor((index-scroll)*8),math.floor((index-scroll)*8)+8,Color.new(40+(1-selected)*40,40+(1-selected)*40,40+(1-selected)*40))
 	for l, file in pairs(files) do
-		if ((l-scroll)*15<240) and ((l-scroll)*15>-1) then
+		if ((l-scroll)*8<240) and ((l-scroll)*8>-8) then
+			if (string.len(file.name)>16) then filename=string.sub(file.name,1,13).."..." else filename=file.name end
 			if file.directory then col=white else col=green end
-			Screen.debugPrint(0,(l-scroll)*15,file.name,col,TOP_SCREEN)
+			print(0,math.floor((l-scroll)*8),filename,col,BOTTOM_SCREEN)
 		end
 	end
 	--SD card files--
-	Screen.fillRect(175,399,(sdindex-sdscroll)*15,(sdindex-sdscroll)*15+10,Color.new(40+(selected)*40,40+(selected)*40,40+(selected)*40),TOP_SCREEN)
+	Graphics.fillRect(128,320,math.floor((sdindex-sdscroll)*8),math.floor((sdindex-sdscroll)*8)+8,Color.new(40+(selected)*40,40+(selected)*40,40+(selected)*40))
 	for l, file in pairs(sdfiles) do
-		if ((l-sdscroll)*15<240) and ((l-sdscroll)*15>-1) then
-			if (string.len(file.name)>23) then
-				if file.directory then col=white else col=green end
-				Screen.debugPrint(175,(l-sdscroll)*15,string.sub(file.name,1,20) .. "...",col,TOP_SCREEN)
-			else
-				if file.directory then col=white else col=green end
-				Screen.debugPrint(175,(l-sdscroll)*15,file.name,col,TOP_SCREEN)
-			end
+		if ((l-sdscroll)*8<240) and ((l-sdscroll)*8>-8) then
+			if (string.len(file.name)>24) then filename=string.sub(file.name,1,21).."..." else filename=file.name end
+			if file.directory then col=white else col=green end
+			print(128,math.floor((l-sdscroll)*8),filename,col,BOTTOM_SCREEN)
 		end
 	end
-	--Bottom screen log--
+	Graphics.termBlend()
+	Graphics.initBlend(TOP_SCREEN)
+	--Top screen log--
 	for l, logg in pairs(logger) do
-		if (l>#logger-16) then
-			Screen.debugPrint(0,(15-(#logger-l))*15,logg,white,BOTTOM_SCREEN)
+		if (l>=#logger-30) then
+			print(0,(29-(#logger-l))*8,string.sub(logg,1,50),white,TOP_SCREEN)
 		end
 	end
-	oldpad=pad
-	
+	Graphics.termBlend()
 	Screen.flip()
 	Screen.waitVblankStart()
 	Screen.refresh()
@@ -325,6 +336,7 @@ function isdir(t,i)
 	end
 	return ans
 end
+
 
 --copy functions--
 function copy()
@@ -349,18 +361,7 @@ function copy()
 	else
 		logg("A: Copy only the contents of a DAT.",1)
 	end
-	repeat
-		oldpad=pad
-		pad = Controls.read()
-		if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-			System.showHomeMenu()
-		end
-		-- Exit if HomeMenu calls APP_EXITING
-		if System.checkStatus() == APP_EXITING then
-			System.exit()
-		end
-		Screen.waitVblankStart()
-	until ((Controls.check(pad,KEY_B) and not Controls.check(oldpad,KEY_B)) or (Controls.check(pad,KEY_Y) and not Controls.check(oldpad,KEY_Y)) or (Controls.check(pad,KEY_X) and not Controls.check(oldpad,KEY_X)) or (Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A)))
+	repeat syscontrols() until ((Controls.check(pad,KEY_B) and not Controls.check(oldpad,KEY_B)) or (Controls.check(pad,KEY_Y) and not Controls.check(oldpad,KEY_Y)) or (Controls.check(pad,KEY_X) and not Controls.check(oldpad,KEY_X)) or (Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A)))
 	clearlogg()
 	counter=0
 	if (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
@@ -611,18 +612,7 @@ function SDtoSBsand(SDdir,SBdir)
 		logg("A: TXT",0)
 		logg("B: DAT",0)
 		logg("Y: GRP",1)
-		repeat
-			oldpad=pad
-			pad = Controls.read()
-			if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-				System.showHomeMenu()
-			end
-			-- Exit if HomeMenu calls APP_EXITING
-			if System.checkStatus() == APP_EXITING then
-				System.exit()
-			end
-			Screen.waitVblankStart()
-		until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))))
+		repeat syscontrols() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))))
 		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
 			logg("Adding T to filename",0)
 			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."T"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
@@ -793,6 +783,7 @@ function SDtoSBdat(SDdir,SBdir)
 	--close files--
 	logg("Done.",1)
 end
+--end copy functions
 
 --used in header injection--
 function hextostring(s)
@@ -915,10 +906,17 @@ function logheader()
 end
 
 --variable declaration--
---messy--
-white = Color.new(255,255,255)
-green = Color.new(100,255,100)
 archive = 0x16de --American SmileBASIC--
+
+Graphics.init()
+if System.checkBuild()==1 then
+	font=Graphics.loadImage("romfs:/sbfont.png")
+else
+	font=Graphics.loadImage(System.currentDirectory().."sbfont.png")
+end
+
+white=Color.new(255,255,255)
+green=Color.new(0,255,0)
 
 folders = SortDirectory(System.listExtdataDir("/",archive)) --get SB folder list--
 files = folders --table for SB file browser--
@@ -936,11 +934,7 @@ selected = 0 --which file browser is being used--
 logger = {} --table for logs on bottom screen - debug stuff and messages--
 MAX_RAM_ALLOCATION = 10485760 --used for copying--
 counter = 60 --resets logg to controls when it reaches 120--
-
-inshop=0--is the user in the shop
-shoploc="http://trotyl.tk/sbfm/" --default shop location
-temploc="/sbfm-temp/" --location of downloads for temporary storage
-sock=nil
+times={} --stores how long each button has been held down--
 
 keyboard = {{ --array containing keyboard data
 {"1","2","3","4","5","6","7","8","9","0","-","=","<-"},
@@ -969,7 +963,7 @@ while true do
 	
 	if counter==60 then
 		clearlogg()
-		logg("SmileBASIC File Manager Version 1.5",0)
+		logg("SmileBASIC File Manager Version 1.6",0)
 		logg("Controls:",0)
 		logg("Circle pad/D-pad: Move cursor",0)
 		logg("L/R: Switch between file browsers",0)
@@ -986,6 +980,37 @@ while true do
 	end
 	if counter<=60 then counter=counter+1 end
 	
+	--touch scrolling--
+	otx=tx
+	oty=ty
+	tx,ty = Controls.readTouch()
+	if otx~=nil and otx~=0 and tx~=0 then
+		if tx<128 then scroll=scroll-(ty-oty)/8 else sdscroll=sdscroll-(ty-oty)/8 end
+	end
+	if (otx==nil or otx==0) and tx~=0 then
+		if tx<128 then
+			oldindex=index
+			index=math.floor(ty/8+scroll)
+			if index>#files then index=#files end
+			if index<1 then index=1 end
+			if oldindex==index and selected==0 then
+				if not Controls.check(pad,KEY_A) then pad=pad+KEY_A end
+				if Controls.check(oldpad,KEY_A) then oldpad=oldpad-KEY_A end
+			end
+			selected=0
+		else
+			oldsdindex=sdindex
+			sdindex=math.floor(ty/8+sdscroll)
+			if sdindex>#sdfiles then sdindex=#sdfiles end
+			if sdindex<1 then sdindex=1 end
+			if oldsdindex==sdindex and selected==1 then
+				if not Controls.check(pad,KEY_A) then pad=pad+KEY_A end
+				if Controls.check(oldpad,KEY_A) then oldpad=oldpad-KEY_A end
+			end
+			selected=1
+		end
+	end
+	
 	--SmileBASIC file viewer controls--
 	if selected == 0 then
 		--move up and down--
@@ -999,12 +1024,12 @@ while true do
 			end
 		end
 		if (Controls.check(pad,KEY_DLEFT)) and not (Controls.check(oldpad,KEY_DLEFT)) then
-			index = index - 15
+			index = index - 30
 			if (index<1) then
 				index = 1
 			end
 		elseif (Controls.check(pad,KEY_DRIGHT)) and not (Controls.check(oldpad,KEY_DRIGHT)) then
-			index = index + 15
+			index = index + 30
 			if (index>#files) then
 				index = #files
 				if (index==0) then index=1 end
@@ -1016,12 +1041,15 @@ while true do
 		end
 		--go inside a folder/log header--
 		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
-			if (isdir(files,index)) then
-				files = SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
-				indexbkup=index
-				index=1
-			else
-				logheader()
+			if #files>0 then
+				if (isdir(files,index)) then
+					files = SortDirectory(System.listExtdataDir("/"..files[index].name.."/",archive))
+					indexbkup=index
+					index=1
+					scroll=0
+				else
+					logheader()
+				end
 			end
 		end
 		--exit a folder--
@@ -1030,13 +1058,6 @@ while true do
 				files = folders
 				index=indexbkup
 			end
-		end
-		--adjust scroll--
-		while ((index-scroll)*15+15>235) and (scroll<#files-15) do
-			scroll = scroll+1
-		end
-		while ((index-scroll)*15<5) and (scroll>1) do
-			scroll = scroll-1
 		end
 	--SD card file viewer controls--
 	else
@@ -1051,12 +1072,12 @@ while true do
 			end
 		end
 		if (Controls.check(pad,KEY_DLEFT)) and not (Controls.check(oldpad,KEY_DLEFT)) then
-			sdindex = sdindex - 15
+			sdindex = sdindex - 30
 			if (sdindex<1) then
 				sdindex = 1
 			end
 		elseif (Controls.check(pad,KEY_DRIGHT)) and not (Controls.check(oldpad,KEY_DRIGHT)) then
-			sdindex = sdindex + 15
+			sdindex = sdindex + 30
 			if (sdindex>#sdfiles) then
 				sdindex = #sdfiles
 				if (sdindex==0) then sdindex=1 end
@@ -1068,13 +1089,16 @@ while true do
 		end
 		--go inside a folder/log header--
 		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
-			if (isdir(sdfiles,sdindex)) then
-				dir=dir..sdfiles[sdindex].name.."/"
-				System.currentDirectory(dir)
-				sdfiles = SortDirectory(System.listDirectory(dir))
-				sdindex=1
-			else
-				logheader()
+			if #sdfiles>0 then
+				if (isdir(sdfiles,sdindex)) then
+					dir=dir..sdfiles[sdindex].name.."/"
+					System.currentDirectory(dir)
+					sdfiles = SortDirectory(System.listDirectory(dir))
+					sdindex=1
+					sdscroll=0
+				else
+					logheader()
+				end
 			end
 		end
 		--back out of a folder--
@@ -1089,12 +1113,43 @@ while true do
 				sdindex=1
 			end
 		end
+	end
+	if otx==nil or otx==0 or tx==0 or tx>=128 then
 		--adjust scroll--
-		while ((sdindex-sdscroll)*15+15>235) and (sdscroll<#sdfiles-15) do
-			sdscroll = sdscroll+1
+		if ((index-scroll)*8>240-16) and (scroll<#files-29) then
+			target=index-(240-16)/8
+			if target>#files-29 then target=#files-29 end
+			if target<1 then target=1 end
+			scroll=scroll+(target-scroll)/4
 		end
-		while ((sdindex-sdscroll)*15<5) and (sdscroll>1) do
-			sdscroll = sdscroll-1
+		if (index-scroll<1) and (scroll>1) then
+			target=index-1.12
+			if target<1 then target=1 end
+			scroll=scroll+(target-scroll)/4
+		end
+		if scroll<1 then scroll=scroll+(1-scroll)/4 elseif scroll>#files-29 then
+			target=#files-29
+			if target<1 then target=0.88 end
+			scroll=scroll+(target-scroll)/4
+		end
+	end
+	if otx==nil or otx==0 or tx<128 then
+		--sd scroll
+		if ((sdindex-sdscroll)*8>240-16) and (sdscroll<#sdfiles-29) then
+			target=sdindex-(240-16)/8
+			if target>#sdfiles-29 then target=#sdfiles-29 end
+			if target<1 then target=1 end
+			sdscroll=sdscroll+(target-sdscroll)/4
+		end
+		if (sdindex-sdscroll<1) and (sdscroll>1) then
+			target=sdindex-1.12
+			if target<1 then target=1 end
+			sdscroll=sdscroll+(target-sdscroll)/4
+		end
+		if sdscroll<1 then sdscroll=sdscroll+(1-sdscroll)/4 elseif sdscroll>#sdfiles-29 then
+			target=#sdfiles-29
+			if target<1 then target=0.88 end
+			sdscroll=sdscroll+(target-sdscroll)/4
 		end
 	end
 	--copy--
@@ -1107,18 +1162,7 @@ while true do
 		logg("A: Create folder",0)
 		logg("X: Delete folder/file",0)
 		logg("B: Cancel",1)
-		repeat
-			oldpad=pad
-			pad = Controls.read()
-			if Controls.check(Controls.read(),KEY_HOME) or Controls.check(Controls.read(),KEY_POWER) then
-				System.showHomeMenu()
-			end
-			-- Exit if HomeMenu calls APP_EXITING
-			if System.checkStatus() == APP_EXITING then
-				System.exit()
-			end
-			Screen.waitVblankStart()
-		until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))))
+		repeat syscontrols() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))))
 		if Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A) then
 			foldername=keyboardinput("Folder name:","",false);
 			if selected==1 then
