@@ -283,7 +283,7 @@ end
 --waits for the user to confirm
 function confirm()
 	okay=false --default false
-	repeat syscontrols() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))))
+	repeat syscontrols() updatescreen() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))))
 	if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
 		okay=true
 	elseif (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
@@ -361,7 +361,7 @@ function copy()
 	else
 		logg("A: Copy only the contents of a DAT.",1)
 	end
-	repeat syscontrols() until ((Controls.check(pad,KEY_B) and not Controls.check(oldpad,KEY_B)) or (Controls.check(pad,KEY_Y) and not Controls.check(oldpad,KEY_Y)) or (Controls.check(pad,KEY_X) and not Controls.check(oldpad,KEY_X)) or (Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A)))
+	repeat syscontrols() updatescreen() until ((Controls.check(pad,KEY_B) and not Controls.check(oldpad,KEY_B)) or (Controls.check(pad,KEY_Y) and not Controls.check(oldpad,KEY_Y)) or (Controls.check(pad,KEY_X) and not Controls.check(oldpad,KEY_X)) or (Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A)))
 	clearlogg()
 	counter=0
 	if (Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B)) then
@@ -612,7 +612,7 @@ function SDtoSBsand(SDdir,SBdir)
 		logg("A: TXT",0)
 		logg("B: DAT",0)
 		logg("Y: GRP",1)
-		repeat syscontrols() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))))
+		repeat syscontrols() updatescreen() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_Y)) and not (Controls.check(oldpad,KEY_Y))))
 		if (Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A)) then
 			logg("Adding T to filename",0)
 			SBdir=string.sub(SBdir,1,string.len(SBdir)-i).."T"..string.sub(SBdir,string.len(SBdir)-i+1,string.len(SBdir))
@@ -963,7 +963,7 @@ while true do
 	
 	if counter==60 then
 		clearlogg()
-		logg("SmileBASIC File Manager Version 1.6",0)
+		logg("SmileBASIC File Manager Version 1.6.1",0)
 		logg("Controls:",0)
 		logg("Circle pad/D-pad: Move cursor",0)
 		logg("L/R: Switch between file browsers",0)
@@ -1162,7 +1162,7 @@ while true do
 		logg("A: Create folder",0)
 		logg("X: Delete folder/file",0)
 		logg("B: Cancel",1)
-		repeat syscontrols() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))))
+		repeat syscontrols() updatescreen() until (((Controls.check(pad,KEY_A)) and not (Controls.check(oldpad,KEY_A))) or ((Controls.check(pad,KEY_B)) and not (Controls.check(oldpad,KEY_B))) or ((Controls.check(pad,KEY_X)) and not (Controls.check(oldpad,KEY_X))))
 		if Controls.check(pad,KEY_A) and not Controls.check(oldpad,KEY_A) then
 			foldername=keyboardinput("Folder name:","",false);
 			if selected==1 then
