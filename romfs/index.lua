@@ -993,6 +993,7 @@ while true do
 			ta=1
 			sdscroll=sdscroll-(ty-oty)/8
 		end
+		tvel=(ty-oty)
 	end
 	if (otx==nil or otx==0) and tx~=0 then
 		if tx<128 then
@@ -1019,10 +1020,10 @@ while true do
 			selected=1
 		end
 	end
-	if tx==0 and tvel~=nil and tvel>0 then
-		tvel=tvel/1.2
+	if tx==0 and tvel~=nil and tvel~=0 then
+		tvel=tvel/1.1
 		if ta==0 then scroll=scroll-tvel/8 else sdscroll=sdscroll-tvel/8 end
-		if tvel<0.1 then tvel=0 end
+		if tvel<0.1 and tvel>-0.1 then tvel=0 end
 	end
 	
 	--SmileBASIC file viewer controls--
