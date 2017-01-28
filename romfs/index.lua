@@ -268,7 +268,7 @@ function numpadinput(prompt,text)
 			end
 			y=y+1
 		end
-		Graphics.termBlend(BOTTOM_SCREEN)
+		Graphics.termBlend()
 		Graphics.initBlend(TOP_SCREEN)
 		print(0,92,prompt,white,TOP_SCREEN)
 		print(16,112,text,white,TOP_SCREEN)
@@ -838,6 +838,7 @@ end
 
 --parses the header--
 function logheader()
+	counter=0
 	clearlogg()
 	valid=1
 	if (selected==0) and not (isdir(files,index)) then
@@ -963,7 +964,7 @@ while true do
 	
 	if counter==60 then
 		clearlogg()
-		logg("SmileBASIC File Manager Version 1.6.1",0)
+		logg("SmileBASIC File Manager Version 1.6.2",0)
 		logg("Controls:",0)
 		logg("Circle pad/D-pad: Move cursor",0)
 		logg("L/R: Switch between file browsers",0)
@@ -985,10 +986,17 @@ while true do
 	oty=ty
 	tx,ty = Controls.readTouch()
 	if otx~=nil and otx~=0 and tx~=0 then
-		if tx<128 then scroll=scroll-(ty-oty)/8 else sdscroll=sdscroll-(ty-oty)/8 end
+		if tx<128 then
+			ta=0
+			scroll=scroll-(ty-oty)/8
+		else
+			ta=1
+			sdscroll=sdscroll-(ty-oty)/8
+		end
 	end
 	if (otx==nil or otx==0) and tx~=0 then
 		if tx<128 then
+			ta=0
 			oldindex=index
 			index=math.floor(ty/8+scroll)
 			if index>#files then index=#files end
@@ -999,6 +1007,7 @@ while true do
 			end
 			selected=0
 		else
+			ta=1
 			oldsdindex=sdindex
 			sdindex=math.floor(ty/8+sdscroll)
 			if sdindex>#sdfiles then sdindex=#sdfiles end
@@ -1009,6 +1018,11 @@ while true do
 			end
 			selected=1
 		end
+	end
+	if tx==0 and tvel~=nil and tvel>0 then
+		tvel=tvel/1.2
+		if ta==0 then scroll=scroll-tvel/8 else sdscroll=sdscroll-tvel/8 end
+		if tvel<0.1 then tvel=0 end
 	end
 	
 	--SmileBASIC file viewer controls--
@@ -1205,7 +1219,7 @@ while true do
 				logg("A: Yes",0)
 				logg("B: No",1)
 				okay=confirm()
-				if confirm then
+				if okay then
 					if selected==0 then
 						if directory then DeleteExtDir(filename,archive) else System.deleteFile(filename,archive) end
 					else
