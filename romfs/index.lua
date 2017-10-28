@@ -967,7 +967,7 @@ while true do
 	
 	if counter==60 then
 		clearlogg()
-		logg("SmileBASIC File Manager Version 1.6.2",0)
+		logg("SmileBASIC File Manager Version 1.6.3",0)
 		logg("Controls:",0)
 		logg("Circle pad/D-pad: Move cursor",0)
 		logg("L/R: Switch between file browsers",0)
