@@ -907,8 +907,11 @@ function logheader()
 end
 
 --variable declaration--
-archive = 0x16de --American SmileBASIC--
-
+if System.getRegion()==2 then
+	archive=0x1ac0 --European SB--
+else
+	archive=0x16de --US SB--
+end
 Graphics.init()
 if System.checkBuild()==1 then
 	font=Graphics.loadImage("romfs:/sbfont.png")
