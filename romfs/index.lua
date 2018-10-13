@@ -908,7 +908,7 @@ end
 
 --variable declaration--
 if System.getRegion()==2 then
-	archive=0x1ac0 --European SB--
+	archive=0x1a1c --European SB--
 else
 	archive=0x16de --US SB--
 end
@@ -967,7 +967,7 @@ while true do
 	
 	if counter==60 then
 		clearlogg()
-		logg("SmileBASIC File Manager Version 1.6.3",0)
+		logg("SmileBASIC File Manager Version 1.6.4",0)
 		logg("Controls:",0)
 		logg("Circle pad/D-pad: Move cursor",0)
 		logg("L/R: Switch between file browsers",0)
