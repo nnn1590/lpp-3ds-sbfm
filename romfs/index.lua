@@ -1091,6 +1091,8 @@ end
 --variable declaration--
 if System.getRegion()==2 then
 	archive=0x1a1c --European SB--
+else if System.getRegion()==1 then
+	archive=0x1172 --JP SB--
 else
 	archive=0x16de --US SB--
 end
